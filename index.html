@@ -1,0 +1,3793 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="漢字でGO暗記" />
+    <title>漢字でGO！ 暗記単語帳</title>
+    <link rel="manifest" href="./manifest.json" />
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <!-- Font Awesome Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      body {
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        overscroll-behavior-y: none;
+      }
+      .kanji-serif {
+        font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+      }
+      .kanji-sans {
+        font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+      }
+      /* ダーク・ライト背景の質感 */
+      .bg-wafu-dark {
+        background-color: #0b0f19;
+        background-image: radial-gradient(
+            at 15% 15%,
+            rgba(99, 102, 241, 0.12) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 85% 85%,
+            rgba(239, 68, 68, 0.08) 0px,
+            transparent 50%
+          );
+      }
+      .bg-wafu-light {
+        background-color: #f5f2eb;
+        background-image: radial-gradient(
+            at 15% 15%,
+            rgba(99, 102, 241, 0.06) 0px,
+            transparent 50%
+          ),
+          radial-gradient(
+            at 85% 85%,
+            rgba(217, 119, 6, 0.06) 0px,
+            transparent 50%
+          );
+      }
+      /* スクロールバー非表示 */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      @keyframes popIn {
+        0% {
+          opacity: 0;
+          transform: translateY(6px) scale(0.98);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .animate-pop {
+        animation: popIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+    </style>
+  </head>
+  <body
+    id="app-body"
+    class="dark bg-wafu-dark text-slate-100 h-[100dvh] w-full overflow-hidden flex flex-col justify-between transition-colors duration-200"
+  >
+    <!-- ==================== 上部コンパクトヘッダー ==================== -->
+    <header
+      class="w-full max-w-md mx-auto px-3 pt-2 pb-1 shrink-0 z-20"
+      style="padding-top: max(0.5rem, var(--safe-top))"
+    >
+      <div class="flex items-center justify-between gap-1.5">
+        <!-- アプリタイトル + 現在レベル/IDピル（タップでドロワー開閉） -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <div
+            class="w-7 h-7 rounded-lg bg-gradient-to-br from-red-600 to-amber-600 flex items-center justify-center shadow text-white font-black text-sm shrink-0"
+          >
+            漢
+          </div>
+          <button
+            onclick="toggleControlDrawer()"
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/90 dark:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/60 active:scale-95 transition text-left min-w-0"
+            title="IDジャンプ・区間・並び替えを開く"
+          >
+            <span
+              id="header-level-badge"
+              class="text-[11px] font-black text-amber-400 shrink-0"
+              >全Lv</span
+            >
+            <span class="text-slate-600 text-[10px]">|</span>
+            <span
+              id="header-current-id"
+              class="text-[11px] font-mono font-bold text-slate-200 truncate"
+              >ID:--</span
+            >
+            <i
+              id="drawer-chevron"
+              class="fa-solid fa-sliders text-[10px] text-amber-400/90 ml-0.5 transition-transform"
+            ></i>
+          </button>
+        </div>
+
+        <!-- コンパクト進捗バー＆ツールボタン群 -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- 進捗ミニ表示 -->
+          <div
+            class="flex flex-col items-end mr-0.5 cursor-pointer"
+            onclick="jumpToFirstUnmastered()"
+            title="タップで未習得の先頭IDへジャンプ"
+          >
+            <div class="flex items-center gap-1 text-[10px] font-bold">
+              <span class="text-emerald-400" id="stat-mastered-count">0</span>
+              <span class="text-slate-500">/</span>
+              <span class="text-slate-300" id="stat-total-count">0</span>
+              <span
+                id="stat-percent-badge"
+                class="text-[9px] px-1 py-0.2 rounded bg-emerald-950/90 text-emerald-300 border border-emerald-700/40 font-mono"
+                >0%</span
+              >
+            </div>
+            <div
+              class="w-16 h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5"
+            >
+              <div
+                id="progress-bar-mastered"
+                class="bg-emerald-500 h-full transition-all duration-300"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+
+          <!-- 表面IDSトグル -->
+          <button
+            id="btn-front-ids"
+            onclick="toggleFrontIds()"
+            class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800/90 border border-slate-700 text-slate-300 active:scale-95 transition"
+            title="カード表面にIDS（部品構成）を常時表示"
+          >
+            <span id="ids-toggle-state" class="text-slate-400">IDS</span>
+          </button>
+
+          <!-- 明朝/ゴシック切替 -->
+          <button
+            id="btn-font-toggle"
+            onclick="toggleKanjiFont()"
+            class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800/90 border border-slate-700 text-slate-300 active:scale-95 transition"
+            title="出題漢字の書体（明朝/ゴシック）を切替"
+          >
+            <span id="font-toggle-label">明朝</span>
+          </button>
+
+          <!-- テーマ（ダーク/ライト）切替 -->
+          <button
+            onclick="toggleTheme()"
+            class="w-7 h-7 rounded-lg bg-slate-800/90 border border-slate-700 text-amber-400 flex items-center justify-center active:scale-95 transition"
+            title="ダークモード / ライトモード（和紙調）切替"
+          >
+            <i id="theme-icon" class="fa-solid fa-sun text-xs"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== メインコンテンツ領域 ==================== -->
+    <main class="flex-1 w-full max-w-md mx-auto px-3 flex flex-col justify-between overflow-hidden relative">
+      <!-- ---------- 【タブ1】暗記カード画面 ---------- -->
+      <section
+        id="view-study"
+        class="h-full w-full flex flex-col justify-between py-0.5"
+      >
+        <!-- 上部2段バー：1段目＝レベル選択ピル、2段目＝学習状態フィルタ＋ドロワー開閉 -->
+        <div class="space-y-1 shrink-0">
+          <!-- 1段目：レベル選択タブ（横スクロール） -->
+          <div
+            id="level-tabs-bar"
+            class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5"
+          ></div>
+
+          <!-- 2段目：状態フィルタ＋現在位置＋詳細ドロワーボタン -->
+          <div class="flex items-center justify-between gap-1">
+            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              <button
+                onclick="setFilterStatus('all')"
+                id="filter-btn-all"
+                class="filter-pill px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950 shadow-sm shrink-0 transition"
+              >
+                すべて
+              </button>
+              <button
+                onclick="setFilterStatus('unlearned')"
+                id="filter-btn-unlearned"
+                class="filter-pill px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-800/90 text-slate-300 border border-slate-700/80 shrink-0 transition"
+              >
+                未学習
+              </button>
+              <button
+                onclick="setFilterStatus('review')"
+                id="filter-btn-review"
+                class="filter-pill px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-800/90 text-rose-300 border border-slate-700/80 shrink-0 transition"
+              >
+                要復習
+              </button>
+              <button
+                onclick="setFilterStatus('mastered')"
+                id="filter-btn-mastered"
+                class="filter-pill px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-800/90 text-emerald-300 border border-slate-700/80 shrink-0 transition"
+              >
+                覚えた
+              </button>
+            </div>
+
+            <!-- 右側：区間＆カード位置インジケータ（タップでドロワー開閉） -->
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                onclick="toggleControlDrawer()"
+                id="btn-drawer-trigger"
+                class="px-2 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 text-[10px] font-bold text-amber-300 flex items-center gap-1 active:scale-95 transition"
+              >
+                <i class="fa-solid fa-layer-group text-[9px]"></i>
+                <span id="active-chunk-label">全区間</span>
+                <span
+                  id="deck-counter"
+                  class="font-mono text-slate-300 ml-0.5"
+                  >0/0</span
+                >
+              </button>
+            </div>
+          </div>
+
+          <!-- 折りたたみ式：ID区間（50/100問単位）・IDジャンプ・並び順・タグ絞り込みドロワー -->
+          <div
+            id="study-control-drawer"
+            class="hidden rounded-2xl bg-slate-900/95 border border-amber-500/40 p-2.5 shadow-2xl space-y-2 animate-pop z-30"
+          >
+            <!-- ID区間（チャンク）選択 -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-bold text-amber-400">
+                  <i class="fa-solid fa-list-ol mr-1"></i>ID区間（チャンク）絞り込み
+                </span>
+                <div class="flex items-center gap-1">
+                  <button
+                    onclick="setChunkSize(50)"
+                    id="chunk-size-50"
+                    class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-slate-950"
+                  >
+                    50問単位
+                  </button>
+                  <button
+                    onclick="setChunkSize(100)"
+                    id="chunk-size-100"
+                    class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700"
+                  >
+                    100問単位
+                  </button>
+                </div>
+              </div>
+              <div
+                id="chunk-pills-bar"
+                class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5"
+              ></div>
+            </div>
+
+            <!-- IDダイレクトジャンプ＆未習得先頭ジャンプ -->
+            <div class="grid grid-cols-12 gap-1.5 items-center">
+              <div class="col-span-7 flex items-center gap-1 bg-slate-950/80 border border-slate-700/80 rounded-xl px-2 py-1">
+                <span class="text-[10px] text-slate-400 font-bold shrink-0">ID移動</span>
+                <select
+                  id="id-jump-select"
+                  onchange="jumpToCardById(this.value)"
+                  class="bg-transparent text-amber-300 text-[11px] font-mono font-bold focus:outline-none w-full truncate"
+                ></select>
+              </div>
+              <button
+                onclick="jumpToFirstUnmastered()"
+                class="col-span-5 py-1.5 px-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 text-[10px] font-bold active:scale-95 transition truncate"
+              >
+                <i class="fa-solid fa-forward-step mr-0.5"></i>未習得の先頭へ
+              </button>
+            </div>
+
+            <!-- 並び順 & タグフィルタ & 2段階判定モード -->
+            <div class="grid grid-cols-12 gap-1.5 items-center pt-0.5">
+              <button
+                onclick="cycleSortOrder()"
+                id="btn-sort-order"
+                class="col-span-4 py-1.5 px-2 rounded-xl bg-slate-800 border border-slate-700 text-[10px] font-bold text-amber-400 active:scale-95 transition truncate"
+              >
+                <i class="fa-solid fa-arrow-down-1-9 mr-0.5"></i
+                ><span id="sort-order-label">ID順(昇順)</span>
+              </button>
+
+              <select
+                id="tag-filter-select"
+                onchange="setFilterTag(this.value)"
+                class="col-span-4 bg-slate-800 text-slate-200 text-[10px] font-semibold rounded-xl px-2 py-1.5 border border-slate-700 focus:outline-none truncate"
+              >
+                <option value="ALL">すべてのタグ</option>
+              </select>
+
+              <button
+                onclick="toggleActionMode()"
+                id="btn-action-mode"
+                class="col-span-4 py-1.5 px-2 rounded-xl bg-slate-800 border border-slate-700 text-[10px] font-bold text-sky-300 active:scale-95 transition truncate"
+                title="裏面を見る前に下部ボタンを押したときの挙動を切替"
+              >
+                <span id="action-mode-label">即判定して次へ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- フラッシュカード本体（左右スワイプ＆タップ開閉対応） -->
+        <div class="flex-1 flex flex-col justify-center my-1.5 min-h-0 relative">
+          <div
+            id="flashcard-box"
+            onclick="toggleCardFlip()"
+            class="w-full h-full max-h-[540px] rounded-3xl bg-slate-900/90 border-2 border-slate-700/90 shadow-2xl flex flex-col justify-between p-4 sm:p-5 relative overflow-y-auto no-scrollbar cursor-pointer transition-all duration-150 active:scale-[0.995]"
+          >
+            <!-- カード最上部：IDバッジ・レベル・送り仮名ガイド・学習ステータス -->
+            <div class="flex items-center justify-between gap-2 shrink-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span
+                  id="card-level-badge"
+                  class="text-[11px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                >
+                  Lv.-
+                </span>
+                <span
+                  id="card-id"
+                  class="text-xs font-mono font-bold px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-200 border border-slate-700"
+                >
+                  ID: ----
+                </span>
+                <span
+                  id="okurigana-hint-badge"
+                  class="hidden text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-950/80 text-red-300 border border-red-800/50"
+                >
+                  赤字＝送り仮名
+                </span>
+              </div>
+              <span
+                id="card-status-badge"
+                class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 shrink-0"
+              >
+                未学習
+              </span>
+            </div>
+
+            <!-- 条件タグ群（文字数指定・音読み指定・カテゴリ等を大きく強調） -->
+            <div
+              id="card-tags"
+              class="flex flex-wrap items-center justify-center gap-1.5 mt-2 shrink-0"
+            ></div>
+
+            <!-- 出題漢字（文字数に応じて自動フォントサイズ調整）＋表面IDS -->
+            <div class="my-auto py-3 flex flex-col items-center justify-center text-center select-text">
+              <div
+                id="card-kanji"
+                class="kanji-serif font-black tracking-wide leading-tight text-white drop-shadow break-all px-2 transition-all duration-150"
+              >
+                読み込み中
+              </div>
+
+              <!-- 表面IDS補助表示（ON時かつIDSが存在する場合） -->
+              <div
+                id="card-front-ids"
+                class="hidden mt-2.5 px-3 py-1 rounded-xl bg-indigo-950/80 border border-indigo-700/60 text-indigo-200 text-xs font-mono"
+              ></div>
+            </div>
+
+            <!-- 裏面（解答・別表記・IDS・意味・元作品引用） -->
+            <div
+              id="card-answer-area"
+              class="hidden border-t border-slate-700/80 pt-3 mt-1 space-y-2.5 animate-pop select-text"
+              onclick="event.stopPropagation()"
+            >
+              <!-- 正解の読み（複数解答・中黒対応） -->
+              <div class="bg-slate-950/90 border border-amber-500/40 rounded-2xl p-3 text-center shadow-inner">
+                <div class="text-[10px] font-bold text-amber-400/90 tracking-widest mb-1">
+                  正解の読み
+                </div>
+                <div
+                  id="card-readings"
+                  class="text-lg sm:text-xl font-black text-amber-300 tracking-wide leading-snug break-words"
+                ></div>
+              </div>
+
+              <!-- 別表記・IDS・意味・元作品の解説ボックス -->
+              <div class="space-y-1.5 text-xs sm:text-sm bg-slate-800/60 rounded-2xl p-3 border border-slate-700/60">
+                <!-- 別表記がある場合 -->
+                <div id="card-alt-row" class="hidden flex items-baseline gap-2">
+                  <span
+                    class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-900/80 text-teal-200 border border-teal-700/60 shrink-0"
+                    >別表記</span
+                  >
+                  <span
+                    id="card-alt-text"
+                    class="font-bold text-teal-200 break-all"
+                  ></span>
+                </div>
+                <!-- IDSがある場合 -->
+                <div id="card-ids-row" class="hidden flex items-baseline gap-2">
+                  <span
+                    class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-900/80 text-indigo-200 border border-indigo-700/60 shrink-0"
+                    >IDS</span
+                  >
+                  <span
+                    id="card-ids-text"
+                    class="font-mono text-indigo-200 break-all"
+                  ></span>
+                </div>
+                <!-- 意味 -->
+                <div id="card-meaning-row" class="hidden">
+                  <span class="text-[10px] font-bold text-slate-400 block mb-0.5"
+                    >意味・解説</span
+                  >
+                  <p
+                    id="card-meaning-text"
+                    class="text-slate-100 leading-relaxed"
+                  ></p>
+                </div>
+                <!-- 元作品 -->
+                <div id="card-source-row" class="hidden">
+                  <span class="text-[10px] font-bold text-slate-400 block mb-0.5"
+                    >元作品・典拠</span
+                  >
+                  <p
+                    id="card-source-text"
+                    class="text-slate-200 leading-relaxed bg-slate-900/70 p-2 rounded-xl border border-slate-700/60 text-xs"
+                  ></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 表面時のタップガイド（裏面非表示時のみ表示） -->
+            <div
+              id="card-tap-prompt"
+              class="py-2.5 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-center text-slate-400 text-xs font-semibold flex items-center justify-center gap-2 shrink-0"
+            >
+              <i class="fa-regular fa-hand-pointer text-amber-400 animate-bounce"></i>
+              <span>カードをタップして読み・意味を表示（左右スワイプで移動）</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下部ワンタップ操作パネル（Undo＋前後移動＋要復習/覚えた） -->
+        <div class="pt-0.5 pb-1.5 shrink-0 space-y-1.5">
+          <!-- サブ操作行：前へ / 1つ戻す(Undo) / 裏返す / 次へ -->
+          <div class="grid grid-cols-12 gap-1.5">
+            <button
+              onclick="prevCard()"
+              class="col-span-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-slate-300 font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-1"
+            >
+              <i class="fa-solid fa-chevron-left text-[10px]"></i>前へ
+            </button>
+            <button
+              onclick="undoLastAction()"
+              id="btn-undo-action"
+              disabled
+              class="col-span-3 py-2 rounded-xl bg-slate-800/90 active:scale-95 text-slate-400 font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-1 opacity-40 pointer-events-none"
+              title="直前の判定とカード移動を1つ戻す"
+            >
+              <i class="fa-solid fa-rotate-left text-[10px]"></i>1つ戻す
+            </button>
+            <button
+              onclick="toggleCardFlip()"
+              class="col-span-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-1"
+            >
+              <i class="fa-solid fa-arrows-rotate text-[10px]"></i>解答
+            </button>
+            <button
+              onclick="nextCard()"
+              class="col-span-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-slate-300 font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-1"
+            >
+              次へ<i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </button>
+          </div>
+
+          <!-- メイン判定ボタン（親指で押しやすい大型2ボタン） -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <button
+              id="btn-judge-review"
+              onclick="handleBottomJudgeButton('review')"
+              class="py-3.5 px-4 rounded-2xl bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 active:scale-95 text-white font-black text-base shadow-lg shadow-rose-950/60 border border-rose-400/30 flex items-center justify-center gap-2 transition"
+            >
+              <i class="fa-solid fa-rotate-left"></i>
+              <span id="label-judge-review">要復習</span>
+            </button>
+            <button
+              id="btn-judge-mastered"
+              onclick="handleBottomJudgeButton('mastered')"
+              class="py-3.5 px-4 rounded-2xl bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:scale-95 text-white font-black text-base shadow-lg shadow-emerald-950/60 border border-emerald-400/30 flex items-center justify-center gap-2 transition"
+            >
+              <i class="fa-solid fa-check"></i>
+              <span id="label-judge-mastered">覚えた！</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 【タブ2】問題一覧＆Wikiテキスト（Ctrl+A / .txt）一括追加画面 ---------- -->
+      <section
+        id="view-manage"
+        class="hidden h-full w-full flex-col justify-between py-2 overflow-y-auto no-scrollbar space-y-4"
+      >
+        <!-- Wiki Ctrl+A コピペ & .txt ファイル一括インポートボックス -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-1">
+            <h2 class="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-file-import"></i>
+              Wikiページ（Ctrl+A 全選択 / .txt）一括取り込み
+            </h2>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <select
+                id="import-level-override"
+                onchange="previewWikiInput()"
+                class="bg-slate-950 text-amber-300 text-[11px] font-bold rounded-lg px-2 py-1 border border-slate-700 focus:outline-none"
+                title="IDにレベル番号が含まれないページ（Lv.1やLv.8など）を取り込む際にレベルを固定できます"
+              >
+                <option value="AUTO">レベル自動判定</option>
+                <option value="01">Lv.1 として取込</option>
+                <option value="02">Lv.2 として取込</option>
+                <option value="03">Lv.3 として取込</option>
+                <option value="04">Lv.4 として取込</option>
+                <option value="05">Lv.5 として取込</option>
+                <option value="06">Lv.6 として取込</option>
+                <option value="07">Lv.7 として取込</option>
+                <option value="08">Lv.8 として取込</option>
+              </select>
+              <label
+                class="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 font-bold cursor-pointer active:scale-95 transition flex items-center gap-1"
+              >
+                <i class="fa-solid fa-folder-open"></i>.txtファイルを選択
+                <input
+                  type="file"
+                  accept=".txt,text/plain"
+                  multiple
+                  class="hidden"
+                  onchange="importWikiTxtFiles(event)"
+                />
+              </label>
+              <button
+                onclick="insertSampleWikiText()"
+                class="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold"
+              >
+                Ctrl+Aサンプル挿入
+              </button>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            <a
+              href="https://w.atwiki.jp/yuia_sk/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-amber-400 underline font-semibold"
+              >漢字でGO！ 問題集 @wiki</a
+            >
+            の各レベルページで
+            <span class="text-slate-200 font-semibold">Ctrl+A（全選択）→ コピー</span>
+            したテキストをそのまま貼り付けるか、保存した <code class="text-indigo-300">.txt</code> ファイルを選択してください。メニューや末尾のランキング等のフッターは自動除去され、送り仮名の赤字や「別表記：」も自動抽出されます。
+          </p>
+
+          <textarea
+            id="wiki-paste-input"
+            rows="5"
+            oninput="previewWikiInput()"
+            placeholder="ここに Ctrl+A でコピーしたWikiページ全体のテキストを貼り付け...&#10;&#10;例:&#10;ID:Lv05_0001　はびこる&#10;テキスト：滔る&#10;意味：水が勢いよく広がる。水が満ちあふれる。&#10;&#10;ID:Lv05_0140　うつぼかずら&#10;テキスト：靫葛&#10;意味：ウツボカズラ科の植物の総称。&#10;別表記：猪籠草&#10;植物・藻類"
+            class="w-full rounded-xl bg-slate-950 border border-slate-700 p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500 select-text"
+          ></textarea>
+
+          <!-- リアルタイム解析プレビュー -->
+          <div
+            id="parse-preview-box"
+            class="hidden rounded-xl bg-slate-950/90 border border-amber-500/40 p-2.5 text-xs space-y-1"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-amber-300" id="preview-summary-title"
+                >解析プレビュー</span
+              >
+              <span
+                class="text-[10px] font-mono text-emerald-400"
+                id="preview-id-range"
+              ></span>
+            </div>
+            <div
+              id="preview-detail-stats"
+              class="text-[11px] text-slate-300 flex flex-wrap gap-x-3 gap-y-1"
+            ></div>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              onclick="parseAndImportWikiText()"
+              class="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs shadow transition flex items-center justify-center gap-1.5"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              解析してカード追加・更新
+            </button>
+            <button
+              onclick="repairAndCleanExistingCards()"
+              class="py-2.5 px-3 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 font-bold text-xs border border-emerald-500/40 active:scale-95 transition flex items-center gap-1"
+              title="登録済みデータのimageプラグインエラー・典拠URL・括弧ゴミ・Lv1/Lv2のID表記ゆれ・タグの表記ゆれ・元データの既知の誤記（漢字/読み/意味）を一括修復します（学習状況は保持）"
+            >
+              <i class="fa-solid fa-broom"></i>登録データを自動修復
+            </button>
+            <button
+              onclick="clearPasteInput()"
+              class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition"
+            >
+              クリア
+            </button>
+          </div>
+        </div>
+
+        <!-- JSONバックアップ保存・復元・リセット -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h2 class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+            <i class="fa-solid fa-database text-amber-400"></i>
+            データ管理（AI全数検査エクスポート・バックアップ）
+          </h2>
+
+          <!-- AI全数検査用エクスポートパネル -->
+          <div class="bg-slate-950/90 border border-indigo-500/40 rounded-xl p-3 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                AI全数検査用データ出力（連番・送り仮名・タグ検証）
+              </div>
+              <select
+                id="audit-level-select"
+                class="bg-slate-900 text-amber-300 text-[11px] font-bold rounded-lg px-2 py-1 border border-slate-700 focus:outline-none"
+              >
+                <option value="ALL">全レベル一括</option>
+              </select>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              登録データが正しく抽出されているかAIに直接添付して全数検査できるよう、事前チェック結果（ID欠番・文字数指定の矛盾・送り仮名判定）付きの検査用ファイルを出力します。
+            </p>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button
+                onclick="exportAuditTsvFile()"
+                class="py-2 px-2 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 font-bold text-[11px] border border-indigo-500/40 flex items-center justify-center gap-1 active:scale-95 transition"
+                title="AIが最も少ないトークン数で500〜数千問を全数検査できるTSV形式(.txt)"
+              >
+                <i class="fa-solid fa-file-lines text-indigo-300"></i>検査用TSV(.txt)
+              </button>
+              <button
+                onclick="exportAuditJsonlFile()"
+                class="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] border border-slate-700 flex items-center justify-center gap-1 active:scale-95 transition"
+                title="1行1問のJSON Lines形式(.jsonl)"
+              >
+                <i class="fa-solid fa-code text-sky-400"></i>JSONL出力
+              </button>
+              <button
+                onclick="copyAuditPromptAndData()"
+                class="py-2 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[11px] border border-amber-500/40 flex items-center justify-center gap-1 active:scale-95 transition"
+                title="AI検査依頼プロンプトと全データ一覧をクリップボードにコピー"
+              >
+                <i class="fa-solid fa-copy text-amber-400"></i>AI検査コピー
+              </button>
+            </div>
+            <!-- アプリ内クイック自動診断結果バー -->
+            <div
+              id="local-audit-summary"
+              class="text-[11px] font-mono bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-300"
+            ></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              onclick="exportCardsJson()"
+              class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-1.5"
+            >
+              <i class="fa-solid fa-download text-amber-400"></i>JSON保存
+            </button>
+            <label
+              class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <i class="fa-solid fa-upload text-emerald-400"></i>JSON読込
+              <input
+                type="file"
+                accept=".json"
+                class="hidden"
+                onchange="importCardsJson(event)"
+              />
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button
+              onclick="openConfirmModal('resetProgress')"
+              class="py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-rose-950/60 text-rose-300 font-semibold text-xs border border-rose-900/40"
+            >
+              学習履歴のみリセット
+            </button>
+            <button
+              onclick="openConfirmModal('resetAllData')"
+              class="py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-rose-950/60 text-rose-300 font-semibold text-xs border border-rose-900/40"
+            >
+              初期サンプルに戻す
+            </button>
+          </div>
+        </div>
+
+        <!-- 登録済みカード一覧・検索 -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-slate-200">
+              登録済みカード一覧 (<span id="manage-list-count">0</span>件)
+            </h2>
+          </div>
+          <div class="relative">
+            <i
+              class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"
+            ></i>
+            <input
+              id="manage-search-input"
+              type="text"
+              oninput="renderManageList()"
+              placeholder="ID、漢字、読み、別表記、タグで検索..."
+              class="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-100 focus:outline-none focus:border-amber-500 select-text"
+            />
+          </div>
+          <div
+            id="manage-card-list"
+            class="space-y-2 max-h-72 overflow-y-auto pr-1"
+          ></div>
+        </div>
+      </section>
+
+      <!-- ---------- 【タブ3】iPhoneオフライン(PWA)導入ガイド ---------- -->
+      <section
+        id="view-pwa"
+        class="hidden h-full w-full flex-col justify-between py-2 overflow-y-auto no-scrollbar space-y-4"
+      >
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h2 class="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+            <i class="fa-brands fa-apple text-base"></i>
+            iPhoneで完全オフライン起動する手順
+          </h2>
+          <ol class="text-xs text-slate-300 space-y-2.5 list-decimal list-inside leading-relaxed">
+            <li>
+              このHTML（<code class="text-amber-300">index.html</code>）と、下のボタンから書き出せる
+              <code class="text-amber-300">manifest.json</code>・<code class="text-amber-300">sw.js</code>
+              の3ファイルを同じフォルダに置いてGitHub Pages等に配置します。
+            </li>
+            <li>
+              iPhoneの<strong>Safari</strong>でページを開き、画面下部の共有ボタン（<i class="fa-solid fa-arrow-up-from-bracket text-sky-400"></i>）から
+              <strong>「ホーム画面に追加」</strong>をタップします。
+            </li>
+            <li>
+              一度ホーム画面のアイコンから起動するとプログラムと問題データがiPhone本体に保存され、以降は<strong>機内モード（圏外）でもフルスクリーンで高速起動</strong>します。
+            </li>
+          </ol>
+
+          <div class="grid grid-cols-2 gap-2 pt-2">
+            <button
+              onclick="downloadManifestFile()"
+              class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-slate-700 flex items-center justify-center gap-1.5"
+            >
+              <i class="fa-solid fa-file-code"></i>manifest.json取得
+            </button>
+            <button
+              onclick="downloadServiceWorkerFile()"
+              class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs border border-slate-700 flex items-center justify-center gap-1.5"
+            >
+              <i class="fa-solid fa-gears"></i>sw.js取得
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-2">
+          <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <i class="fa-solid fa-font text-indigo-400"></i>
+            特殊漢字（豆腐化）と送り仮名の仕様について
+          </h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            ・Wikiの <code class="text-slate-200">Ctrl+A</code> テキストを貼り付けると、漢字に混じるひらがな（例：<code class="text-slate-200">滔る</code>、<code class="text-slate-200">翌る日</code>、<code class="text-slate-200">鬩ぎ合い</code>）と読みを自動照合し、<span class="text-red-400 font-bold">赤字の送り仮名</span>として復元します。<br />
+            ・Lv.7〜Lv.8の則天文字や拡張漢字など、iPhone標準フォントで表示できない文字はヘッダー右上の「<strong>IDS</strong>」ボタンをONにすると、表面にも部品構成（<code class="text-indigo-300">⿰金太</code> など）を常時補助表示できます。
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ==================== 下部ナビゲーションタブバー ==================== -->
+    <nav
+      class="w-full max-w-md mx-auto px-4 pt-1 pb-2 bg-slate-950/90 backdrop-blur border-t border-slate-800/80 shrink-0 z-20"
+      style="padding-bottom: max(0.5rem, var(--safe-bottom))"
+    >
+      <div class="grid grid-cols-3 gap-2">
+        <button
+          onclick="switchTab('study')"
+          id="tab-btn-study"
+          class="py-1.5 rounded-xl text-amber-400 bg-slate-900 font-bold text-[11px] flex flex-col items-center gap-0.5 border border-slate-800"
+        >
+          <i class="fa-solid fa-layer-group text-sm"></i>
+          <span>暗記カード</span>
+        </button>
+        <button
+          onclick="switchTab('manage')"
+          id="tab-btn-manage"
+          class="py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-semibold text-[11px] flex flex-col items-center gap-0.5"
+        >
+          <i class="fa-solid fa-list-check text-sm"></i>
+          <span>問題一覧・追加</span>
+        </button>
+        <button
+          onclick="switchTab('pwa')"
+          id="tab-btn-pwa"
+          class="py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-semibold text-[11px] flex flex-col items-center gap-0.5"
+        >
+          <i class="fa-solid fa-mobile-screen-button text-sm"></i>
+          <span>オフライン(PWA)</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ==================== カスタムトースト通知 ==================== -->
+    <div
+      id="toast-box"
+      class="fixed top-12 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2 rounded-full bg-slate-900/95 border border-amber-500/50 text-amber-300 text-xs font-bold shadow-2xl pointer-events-none"
+    ></div>
+
+    <!-- ==================== カスタム確認モーダル（alert/confirm代替） ==================== -->
+    <div
+      id="confirm-modal"
+      class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+    >
+      <div
+        class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-4 shadow-2xl"
+      >
+        <h3 id="modal-title" class="text-sm font-bold text-white">確認</h3>
+        <p id="modal-message" class="text-xs text-slate-300 leading-relaxed"></p>
+        <div class="flex gap-2 pt-1">
+          <button
+            onclick="closeConfirmModal()"
+            class="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700"
+          >
+            キャンセル
+          </button>
+          <button
+            id="modal-confirm-btn"
+            class="flex-1 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold"
+          >
+            実行する
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== アプリケーションスクリプト ==================== -->
+    <script>
+      // --- LocalStorage キー定義 ---
+      const STORAGE_KEY_CARDS = "kanjidego_flashcards_v3";
+      const STORAGE_KEY_SETTINGS = "kanjidego_settings_v3";
+      const STORAGE_KEY_BOOKMARKS = "kanjidego_level_bookmarks_v3";
+
+      // --- 初期サンプルデータ（添付のLv.5実データ抜粋＋Lv.7サンプル） ---
+      const INITIAL_SAMPLE_CARDS = [
+        {
+          id: "Lv05_0001",
+          kanji: "滔[る]",
+          readings: ["はびこる"],
+          ids: "",
+          altForms: "",
+          meaning: "水が勢いよく広がる。水が満ちあふれる。",
+          source: "",
+          tags: [],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0002",
+          kanji: "綏",
+          readings: ["たれひも"],
+          ids: "",
+          altForms: "",
+          meaning: "車に乗るときや、車中で立つ際に掴まるためのひも。",
+          source: "",
+          tags: ["4文字指定"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0003",
+          kanji: "拉[げる]",
+          readings: ["ひしゃげる", "ひしげる"],
+          ids: "",
+          altForms: "",
+          meaning: "押されてつぶれる。ぺしゃんこになる。",
+          source: "",
+          tags: [],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0004",
+          kanji: "翌[る]日",
+          readings: ["あくるひ"],
+          ids: "",
+          altForms: "",
+          meaning: "現在、または過去のある日からみて、次の日。翌日。",
+          source: "",
+          tags: [],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0005",
+          kanji: "魚虎",
+          readings: ["かわせみ"],
+          ids: "",
+          altForms: "",
+          meaning: "ブッポウソウ目カワセミ科の小鳥。水辺に生息し、小魚を捕らえる。",
+          source: "",
+          tags: ["4文字指定", "動物"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0062",
+          kanji: "鬩[ぎ]合[い]",
+          readings: ["せめぎあい"],
+          ids: "",
+          altForms: "",
+          meaning: "互いに恨んで争うこと。",
+          source: "",
+          tags: [],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0140",
+          kanji: "靫葛",
+          readings: ["うつぼかずら"],
+          ids: "",
+          altForms: "猪籠草",
+          meaning: "ウツボカズラ科の植物の総称。食虫植物の一種。",
+          source: "",
+          tags: ["植物・藻類"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0202",
+          kanji: "木通",
+          readings: ["あけび"],
+          ids: "",
+          altForms: "通草、丁翁",
+          meaning: "キンポウゲ目アケビ科のつる性落葉低木。秋の味覚を代表することで知られる。",
+          source: "",
+          tags: ["3文字指定", "植物・藻類"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0414",
+          kanji: "何[れ]菖蒲[か]杜若",
+          readings: ["いずれあやめかかきつばた"],
+          ids: "",
+          altForms: "",
+          meaning: "優れているものが複数あって、選択に迷うことのたとえ。",
+          source: "",
+          tags: [],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv05_0496",
+          kanji: "鯔[のつまり]",
+          readings: ["とどのつまり"],
+          ids: "",
+          altForms: "",
+          meaning: "話が最後に行き着くところ。結局。",
+          source: "",
+          tags: [],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv07_0501",
+          kanji: "竜舌蘭",
+          readings: ["りねぞるむ・おるきでえ"],
+          ids: "",
+          altForms: "",
+          meaning: "",
+          source:
+            "…片割れは蘭の一種—— 衒学的 ( ペダンティック ) に云うと、 竜舌蘭 ( リネゾルム・オルキデエ ) なんですがね 黒死館殺人事件／ 小栗虫太郎 著",
+          tags: ["文学の漢字", "11文字指定"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv07_0505",
+          kanji: "周章狼狽[て]",
+          readings: ["あわてふためいて"],
+          ids: "",
+          altForms: "",
+          meaning: "",
+          source:
+            "猛獸羣 ( まうじうぐん ) は不意に驚いて、 周章狼狽 ( あわてふためい ) て逃げ失せる。 海島冒険奇譚／ 押川春浪 著",
+          tags: ["文学の漢字", "7文字指定"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv07_0521",
+          kanji: "鈦",
+          readings: ["ちたん"],
+          ids: "⿰金太",
+          altForms: "",
+          meaning: "元素番号22の元素。元素記号はTi。",
+          source: "",
+          tags: ["元素", "3文字指定"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+        {
+          id: "Lv07_0529",
+          kanji: "𤸿",
+          readings: ["ど"],
+          ids: "⿸㽾⿺及乚/⿸疒⿱出⿺及乚",
+          altForms: "",
+          meaning: "『度』の異体字とされる。数ではかられるものを表す目盛り。",
+          source: "",
+          tags: ["1文字指定", "音読み指定"],
+          status: "unlearned",
+          reviewCount: 0,
+        },
+      ];
+
+      // --- アプリ状態管理 ---
+      let allCards = [];
+      let filteredDeck = [];
+      let currentIndex = 0;
+      let isFlipped = false;
+      let filterLevel = "ALL";
+      let filterStatus = "all";
+      let filterTag = "ALL";
+      let sortOrder = "id_asc"; // 'id_asc' | 'id_desc' | 'random'
+      let chunkSize = 50; // 50 または 100
+      let currentChunkIndex = -1; // -1 = 全区間, 0 = 1〜50, 1 = 51〜100...
+      let isDrawerOpen = false;
+      let settings = {
+        showFrontIds: true,
+        kanjiFont: "serif", // 'serif' | 'sans'
+        darkMode: true,
+        actionMode: "instant", // 'instant' | 'two_step'
+      };
+      let levelBookmarks = {};
+      let undoStack = [];
+      let pendingConfirmAction = null;
+
+      // =========================================================================
+      // 1. レベル自動抽出とID順自然ソート
+      // =========================================================================
+      function extractCardLevel(card) {
+        if (card.level) return card.level;
+        const idStr = String(card.id || "");
+        const lvMatch = idStr.match(/^Lv0?(\d+)/i);
+        if (lvMatch) return `Lv.${parseInt(lvMatch[1], 10)}`;
+        if (/^Hell/i.test(idStr) || idStr.includes("ヘル")) return "ヘル";
+        if (/^Basic/i.test(idStr) || idStr.includes("ベーシック"))
+          return "ベーシック";
+        const prefixMatch = idStr.match(/^([A-Za-zァ-ヶー一-龠]+)/);
+        if (prefixMatch) return prefixMatch[1];
+        return "その他";
+      }
+
+      function compareCardIds(a, b) {
+        return String(a.id || "").localeCompare(String(b.id || ""), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+
+      function compareLevelNames(a, b) {
+        if (a === "ALL") return -1;
+        if (b === "ALL") return 1;
+        const mA = a.match(/^Lv\.(\d+)$/);
+        const mB = b.match(/^Lv\.(\d+)$/);
+        if (mA && mB) return parseInt(mA[1], 10) - parseInt(mB[1], 10);
+        if (mA) return -1;
+        if (mB) return 1;
+        return a.localeCompare(b, "ja");
+      }
+
+      // =========================================================================
+      // 2. 初期化・LocalStorage読み書き
+      // =========================================================================
+      function initApp() {
+        try {
+          const savedCards = localStorage.getItem(STORAGE_KEY_CARDS);
+          if (savedCards) {
+            const parsed = JSON.parse(savedCards);
+            allCards =
+              Array.isArray(parsed) && parsed.length > 0
+                ? parsed
+                : [...INITIAL_SAMPLE_CARDS];
+          } else {
+            allCards = [...INITIAL_SAMPLE_CARDS];
+            saveCards();
+          }
+
+          const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+          if (savedSettings) {
+            settings = { ...settings, ...JSON.parse(savedSettings) };
+          }
+
+          const savedBookmarks = localStorage.getItem(STORAGE_KEY_BOOKMARKS);
+          if (savedBookmarks) {
+            levelBookmarks = JSON.parse(savedBookmarks) || {};
+          }
+        } catch (err) {
+          console.error("Storage load error:", err);
+          allCards = [...INITIAL_SAMPLE_CARDS];
+        }
+
+        allCards.sort(compareCardIds);
+
+        applyThemeUI();
+        applyFontUI();
+        applyFrontIdsUI();
+        applyActionModeUI();
+        populateLevelTabs();
+        populateTagOptions();
+        applyFilters(true, true);
+        renderManageList();
+        setupCardSwipeGestures();
+      }
+
+      function saveCards() {
+        try {
+          localStorage.setItem(STORAGE_KEY_CARDS, JSON.stringify(allCards));
+        } catch (err) {
+          console.error("Save error:", err);
+        }
+      }
+
+      function saveSettings() {
+        try {
+          localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+        } catch (err) {
+          console.error("Settings save error:", err);
+        }
+      }
+
+      function saveBookmarks() {
+        try {
+          localStorage.setItem(
+            STORAGE_KEY_BOOKMARKS,
+            JSON.stringify(levelBookmarks)
+          );
+        } catch (err) {
+          console.error("Bookmark save error:", err);
+        }
+      }
+
+      function saveCurrentBookmark() {
+        if (filteredDeck.length === 0) return;
+        const currentCard = filteredDeck[currentIndex];
+        if (!currentCard) return;
+        levelBookmarks[filterLevel] = currentCard.id;
+        const lv = extractCardLevel(currentCard);
+        levelBookmarks[lv] = currentCard.id;
+        saveBookmarks();
+      }
+
+      // =========================================================================
+      // 3. レベルタブ・ID区間（チャンク）・フィルタリング
+      // =========================================================================
+      function getCardsByCurrentLevel() {
+        if (filterLevel === "ALL") return [...allCards].sort(compareCardIds);
+        return allCards
+          .filter((c) => extractCardLevel(c) === filterLevel)
+          .sort(compareCardIds);
+      }
+
+      function populateLevelTabs() {
+        const bar = document.getElementById("level-tabs-bar");
+        if (!bar) return;
+
+        const levelMap = new Map();
+        allCards.forEach((card) => {
+          const lv = extractCardLevel(card);
+          if (!levelMap.has(lv)) {
+            levelMap.set(lv, { total: 0, mastered: 0 });
+          }
+          const entry = levelMap.get(lv);
+          entry.total++;
+          if (card.status === "mastered") entry.mastered++;
+        });
+
+        const levels = Array.from(levelMap.keys()).sort(compareLevelNames);
+        if (filterLevel !== "ALL" && !levelMap.has(filterLevel)) {
+          filterLevel = "ALL";
+        }
+
+        const totalAll = allCards.length;
+        const masteredAll = allCards.filter((c) => c.status === "mastered")
+          .length;
+
+        let html = `
+          <button
+            onclick="setFilterLevel('ALL')"
+            class="px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition flex items-center gap-1 ${
+              filterLevel === "ALL"
+                ? "bg-amber-500 text-slate-950 shadow"
+                : "bg-slate-800/90 text-slate-300 border border-slate-700/80"
+            }"
+          >
+            <span>全Lv</span>
+            <span class="text-[10px] font-mono ${
+              filterLevel === "ALL" ? "text-slate-900" : "text-amber-400"
+            }">${masteredAll}/${totalAll}</span>
+          </button>
+        `;
+
+        levels.forEach((lv) => {
+          const st = levelMap.get(lv);
+          const active = filterLevel === lv;
+          html += `
+            <button
+              onclick="setFilterLevel('${lv}')"
+              class="px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition flex items-center gap-1 ${
+                active
+                  ? "bg-amber-500 text-slate-950 shadow"
+                  : "bg-slate-800/90 text-slate-300 border border-slate-700/80"
+              }"
+            >
+              <span>${lv}</span>
+              <span class="text-[10px] font-mono ${
+                active ? "text-slate-900" : "text-emerald-400"
+              }">${st.mastered}/${st.total}</span>
+            </button>
+          `;
+        });
+
+        bar.innerHTML = html;
+      }
+
+      function populateChunkPills() {
+        const bar = document.getElementById("chunk-pills-bar");
+        const labelEl = document.getElementById("active-chunk-label");
+        if (!bar) return;
+
+        const levelCards = getCardsByCurrentLevel();
+        const total = levelCards.length;
+        const numChunks = Math.ceil(total / chunkSize);
+
+        if (currentChunkIndex >= numChunks) {
+          currentChunkIndex = -1;
+        }
+
+        let html = `
+          <button
+            onclick="selectChunk(-1)"
+            class="px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition ${
+              currentChunkIndex === -1
+                ? "bg-amber-500 text-slate-950"
+                : "bg-slate-800 text-slate-300 border border-slate-700"
+            }"
+          >
+            全区間 (${total})
+          </button>
+        `;
+
+        for (let i = 0; i < numChunks; i++) {
+          const startIdx = i * chunkSize;
+          const endIdx = Math.min(startIdx + chunkSize, total) - 1;
+          const slice = levelCards.slice(startIdx, endIdx + 1);
+          const masteredInChunk = slice.filter((c) => c.status === "mastered")
+            .length;
+          const active = currentChunkIndex === i;
+
+          html += `
+            <button
+              onclick="selectChunk(${i})"
+              class="px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition flex items-center gap-1 ${
+                active
+                  ? "bg-amber-500 text-slate-950"
+                  : "bg-slate-800 text-slate-300 border border-slate-700"
+              }"
+            >
+              <span>#${startIdx + 1}〜${endIdx + 1}</span>
+              <span class="font-mono text-[9px] ${
+                active ? "text-slate-900" : "text-emerald-400"
+              }">${masteredInChunk}/${slice.length}</span>
+            </button>
+          `;
+        }
+
+        bar.innerHTML = html;
+
+        if (labelEl) {
+          if (currentChunkIndex === -1) {
+            labelEl.textContent = "全区間";
+          } else {
+            const s = currentChunkIndex * chunkSize + 1;
+            const e = Math.min((currentChunkIndex + 1) * chunkSize, total);
+            labelEl.textContent = `#${s}-${e}`;
+          }
+        }
+      }
+
+      function setChunkSize(size) {
+        chunkSize = size;
+        currentChunkIndex = -1;
+        document.getElementById("chunk-size-50").className =
+          size === 50
+            ? "px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-slate-950"
+            : "px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700";
+        document.getElementById("chunk-size-100").className =
+          size === 100
+            ? "px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-slate-950"
+            : "px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700";
+        applyFilters(true, false);
+      }
+
+      function selectChunk(idx) {
+        currentChunkIndex = idx;
+        applyFilters(true, false);
+      }
+
+      function setFilterLevel(lv) {
+        filterLevel = lv;
+        currentChunkIndex = -1;
+        populateLevelTabs();
+        populateTagOptions();
+        applyFilters(true, true);
+      }
+
+      function setFilterStatus(status) {
+        filterStatus = status;
+        const buttons = {
+          all: document.getElementById("filter-btn-all"),
+          unlearned: document.getElementById("filter-btn-unlearned"),
+          review: document.getElementById("filter-btn-review"),
+          mastered: document.getElementById("filter-btn-mastered"),
+        };
+        Object.keys(buttons).forEach((key) => {
+          if (key === status) {
+            buttons[key].className =
+              "filter-pill px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950 shadow-sm shrink-0 transition";
+          } else {
+            const textColor =
+              key === "review"
+                ? "text-rose-300"
+                : key === "mastered"
+                ? "text-emerald-300"
+                : "text-slate-300";
+            buttons[key].className = `filter-pill px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-800/90 ${textColor} border border-slate-700/80 shrink-0 transition`;
+          }
+        });
+        applyFilters(true, false);
+      }
+
+      function setFilterTag(tag) {
+        filterTag = tag;
+        applyFilters(true, false);
+      }
+
+      function populateTagOptions() {
+        const select = document.getElementById("tag-filter-select");
+        if (!select) return;
+        const tagSet = new Set();
+        const targetCards = getCardsByCurrentLevel();
+        targetCards.forEach((c) => (c.tags || []).forEach((t) => tagSet.add(t)));
+        const currentVal = select.value || "ALL";
+        select.innerHTML = `<option value="ALL">すべてのタグ</option>`;
+        Array.from(tagSet)
+          .sort()
+          .forEach((tag) => {
+            const opt = document.createElement("option");
+            opt.value = tag;
+            opt.textContent = tag;
+            select.appendChild(opt);
+          });
+        if (Array.from(tagSet).includes(currentVal)) {
+          select.value = currentVal;
+        } else {
+          filterTag = "ALL";
+          select.value = "ALL";
+        }
+      }
+
+      function applyFilters(resetIndex = false, restoreBookmark = false) {
+        const previousCardId =
+          !resetIndex && filteredDeck[currentIndex]
+            ? filteredDeck[currentIndex].id
+            : null;
+
+        // 1. レベルで絞り込み（ID昇順）
+        let baseList = getCardsByCurrentLevel();
+
+        // 2. ID区間（チャンク）で絞り込み
+        populateChunkPills();
+        if (currentChunkIndex >= 0) {
+          const start = currentChunkIndex * chunkSize;
+          baseList = baseList.slice(start, start + chunkSize);
+        }
+
+        // 3. 学習ステータスとタグで絞り込み
+        filteredDeck = baseList.filter((card) => {
+          const statusMatch =
+            filterStatus === "all" || card.status === filterStatus;
+          const tagMatch =
+            filterTag === "ALL" ||
+            (card.tags && card.tags.includes(filterTag));
+          return statusMatch && tagMatch;
+        });
+
+        // 4. 並び順適用
+        if (sortOrder === "id_asc") {
+          filteredDeck.sort(compareCardIds);
+        } else if (sortOrder === "id_desc") {
+          filteredDeck.sort((a, b) => compareCardIds(b, a));
+        } else if (sortOrder === "random") {
+          for (let i = filteredDeck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [filteredDeck[i], filteredDeck[j]] = [
+              filteredDeck[j],
+              filteredDeck[i],
+            ];
+          }
+        }
+
+        // 5. 表示インデックスの決定
+        if (restoreBookmark && levelBookmarks[filterLevel]) {
+          const bookmarkedId = levelBookmarks[filterLevel];
+          const foundIdx = filteredDeck.findIndex((c) => c.id === bookmarkedId);
+          currentIndex = foundIdx !== -1 ? foundIdx : 0;
+        } else if (previousCardId) {
+          const foundIdx = filteredDeck.findIndex(
+            (c) => c.id === previousCardId
+          );
+          if (foundIdx !== -1) {
+            currentIndex = foundIdx;
+          } else if (currentIndex >= filteredDeck.length) {
+            currentIndex = 0;
+          }
+        } else if (resetIndex || currentIndex >= filteredDeck.length) {
+          currentIndex = 0;
+        }
+
+        isFlipped = false;
+        updateProgressHeader();
+        populateIdJumpSelect();
+        renderCurrentCard();
+      }
+
+      function populateIdJumpSelect() {
+        const select = document.getElementById("id-jump-select");
+        if (!select) return;
+        if (filteredDeck.length === 0) {
+          select.innerHTML = `<option value="">該当なし</option>`;
+          return;
+        }
+        let html = "";
+        filteredDeck.forEach((c, idx) => {
+          const mark =
+            c.status === "mastered"
+              ? "✓"
+              : c.status === "review"
+              ? "!"
+              : "・";
+          const plainKanji = (c.kanji || "").replace(/\[|\]/g, "");
+          html += `<option value="${c.id}" ${
+            idx === currentIndex ? "selected" : ""
+          }>${mark} ${c.id} (${plainKanji})</option>`;
+        });
+        select.innerHTML = html;
+      }
+
+      function jumpToCardById(cardId) {
+        if (!cardId) return;
+        const idx = filteredDeck.findIndex((c) => c.id === cardId);
+        if (idx !== -1) {
+          currentIndex = idx;
+          isFlipped = false;
+          saveCurrentBookmark();
+          renderCurrentCard();
+        }
+      }
+
+      function jumpToFirstUnmastered() {
+        if (filteredDeck.length === 0) return;
+        const idx = filteredDeck.findIndex((c) => c.status !== "mastered");
+        if (idx !== -1) {
+          currentIndex = idx;
+          isFlipped = false;
+          saveCurrentBookmark();
+          renderCurrentCard();
+          showToast(`未習得の先頭 (${filteredDeck[idx].id}) へ移動しました`);
+        } else {
+          showToast("現在の範囲はすべて「覚えた！」済みです");
+        }
+      }
+
+      function cycleSortOrder() {
+        const label = document.getElementById("sort-order-label");
+        if (sortOrder === "id_asc") {
+          sortOrder = "id_desc";
+          label.textContent = "ID順(降順)";
+          showToast("IDの降順（新しい順）に並べ替えました");
+        } else if (sortOrder === "id_desc") {
+          sortOrder = "random";
+          label.textContent = "ランダム順";
+          showToast("ランダム順にシャッフルしました");
+        } else {
+          sortOrder = "id_asc";
+          label.textContent = "ID順(昇順)";
+          showToast("ID順（1番から順番）に戻しました");
+        }
+        applyFilters(true, false);
+      }
+
+      function toggleControlDrawer() {
+        isDrawerOpen = !isDrawerOpen;
+        const drawer = document.getElementById("study-control-drawer");
+        if (isDrawerOpen) {
+          drawer.classList.remove("hidden");
+        } else {
+          drawer.classList.add("hidden");
+        }
+      }
+
+      // =========================================================================
+      // 4. カード描画・送り仮名赤字変換・文字数連動フォントサイズ
+      // =========================================================================
+      function formatKanjiWithOkurigana(rawText) {
+        const escaped = escapeHtml(rawText || "");
+        const hasBracket = /\[.+?\]/.test(escaped);
+        const html = escaped.replace(
+          /\[(.+?)\]/g,
+          '<span class="text-red-500 font-bold">$1</span>'
+        );
+        return { html, hasBracket };
+      }
+
+      function getDynamicKanjiFontSizeClass(rawText) {
+        const plain = (rawText || "").replace(/\[|\]/g, "");
+        const len = Array.from(plain).length;
+        const fontClass =
+          settings.kanjiFont === "serif" ? "kanji-serif" : "kanji-sans";
+        if (len <= 1) {
+          return `${fontClass} text-7xl sm:text-8xl font-black tracking-wide leading-tight text-white drop-shadow break-all px-2`;
+        } else if (len <= 3) {
+          return `${fontClass} text-6xl sm:text-7xl font-black tracking-wide leading-tight text-white drop-shadow break-all px-2`;
+        } else if (len <= 5) {
+          return `${fontClass} text-5xl sm:text-6xl font-black tracking-wide leading-tight text-white drop-shadow break-all px-2`;
+        } else if (len <= 8) {
+          return `${fontClass} text-4xl sm:text-5xl font-black tracking-wide leading-snug text-white drop-shadow break-all px-2`;
+        } else {
+          return `${fontClass} text-3xl sm:text-4xl font-black tracking-normal leading-snug text-white drop-shadow break-all px-2`;
+        }
+      }
+
+      function renderCurrentCard() {
+        const counterEl = document.getElementById("deck-counter");
+        const kanjiEl = document.getElementById("card-kanji");
+        const idEl = document.getElementById("card-id");
+        const lvBadgeEl = document.getElementById("card-level-badge");
+        const headerLvEl = document.getElementById("header-level-badge");
+        const headerIdEl = document.getElementById("header-current-id");
+        const statusBadge = document.getElementById("card-status-badge");
+        const tagsContainer = document.getElementById("card-tags");
+        const frontIdsEl = document.getElementById("card-front-ids");
+        const okuriganaBadge = document.getElementById("okurigana-hint-badge");
+
+        headerLvEl.textContent = filterLevel === "ALL" ? "全Lv" : filterLevel;
+
+        if (filteredDeck.length === 0) {
+          counterEl.textContent = "0/0";
+          headerIdEl.textContent = "該当なし";
+          lvBadgeEl.textContent =
+            filterLevel === "ALL" ? "全Lv" : filterLevel;
+          idEl.textContent = "ID: ----";
+          kanjiEl.className =
+            "kanji-serif text-xl font-bold text-slate-400 px-4";
+          kanjiEl.innerHTML = "該当する問題がありません";
+          statusBadge.textContent = "-";
+          statusBadge.className =
+            "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400";
+          tagsContainer.innerHTML = "";
+          frontIdsEl.classList.add("hidden");
+          okuriganaBadge.classList.add("hidden");
+          document.getElementById("card-answer-area").classList.add("hidden");
+          document.getElementById("card-tap-prompt").classList.add("hidden");
+          return;
+        }
+
+        const card = filteredDeck[currentIndex];
+        const cardLv = extractCardLevel(card);
+        counterEl.textContent = `${currentIndex + 1}/${filteredDeck.length}`;
+        lvBadgeEl.textContent = cardLv;
+        idEl.textContent = `ID: ${card.id}`;
+        headerIdEl.textContent = card.id;
+
+        const jumpSelect = document.getElementById("id-jump-select");
+        if (jumpSelect && jumpSelect.value !== card.id) {
+          jumpSelect.value = card.id;
+        }
+
+        // ステータスバッジ
+        if (card.status === "mastered") {
+          statusBadge.textContent = "覚えた！";
+          statusBadge.className =
+            "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60";
+        } else if (card.status === "review") {
+          statusBadge.textContent = `要復習 (${card.reviewCount || 1})`;
+          statusBadge.className =
+            "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-700/60";
+        } else {
+          statusBadge.textContent = "未学習";
+          statusBadge.className =
+            "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700";
+        }
+
+        // 条件タグ表示
+        tagsContainer.innerHTML = "";
+        (card.tags || []).forEach((tag) => {
+          const isCharLimit = /文字指定|音読み|訓読み|外来語/.test(tag);
+          const span = document.createElement("span");
+          span.className = isCharLimit
+            ? "text-xs font-black px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/50 shadow-sm"
+            : "text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700";
+          span.textContent = tag;
+          tagsContainer.appendChild(span);
+        });
+
+        // 出題漢字と送り仮名赤字
+        kanjiEl.className = getDynamicKanjiFontSizeClass(card.kanji);
+        const formatted = formatKanjiWithOkurigana(card.kanji);
+        kanjiEl.innerHTML = formatted.html;
+        if (formatted.hasBracket) {
+          okuriganaBadge.classList.remove("hidden");
+        } else {
+          okuriganaBadge.classList.add("hidden");
+        }
+
+        // 表面IDS補助表示
+        if (settings.showFrontIds && card.ids) {
+          frontIdsEl.textContent = `IDS: ${card.ids}`;
+          frontIdsEl.classList.remove("hidden");
+        } else {
+          frontIdsEl.classList.add("hidden");
+        }
+
+        // 裏面データ更新
+        document.getElementById("card-readings").textContent = (
+          card.readings || []
+        ).join(" ／ ");
+
+        // 別表記
+        const altRow = document.getElementById("card-alt-row");
+        if (card.altForms) {
+          document.getElementById("card-alt-text").textContent = card.altForms;
+          altRow.classList.remove("hidden");
+        } else {
+          altRow.classList.add("hidden");
+        }
+
+        // IDS
+        const idsRow = document.getElementById("card-ids-row");
+        if (card.ids) {
+          document.getElementById("card-ids-text").textContent = card.ids;
+          idsRow.classList.remove("hidden");
+        } else {
+          idsRow.classList.add("hidden");
+        }
+
+        // 意味
+        const meaningRow = document.getElementById("card-meaning-row");
+        if (card.meaning) {
+          document.getElementById("card-meaning-text").textContent =
+            card.meaning;
+          meaningRow.classList.remove("hidden");
+        } else {
+          meaningRow.classList.add("hidden");
+        }
+
+        // 元作品
+        const sourceRow = document.getElementById("card-source-row");
+        if (card.source) {
+          document.getElementById("card-source-text").textContent = card.source;
+          sourceRow.classList.remove("hidden");
+        } else {
+          sourceRow.classList.add("hidden");
+        }
+
+        updateCardFlipView();
+        updateUndoButtonUI();
+      }
+
+      function toggleCardFlip() {
+        if (filteredDeck.length === 0) return;
+        isFlipped = !isFlipped;
+        updateCardFlipView();
+      }
+
+      function updateCardFlipView() {
+        const answerArea = document.getElementById("card-answer-area");
+        const tapPrompt = document.getElementById("card-tap-prompt");
+        const labelReview = document.getElementById("label-judge-review");
+        const labelMastered = document.getElementById("label-judge-mastered");
+
+        if (isFlipped) {
+          answerArea.classList.remove("hidden");
+          tapPrompt.classList.add("hidden");
+          labelReview.textContent = "要復習";
+          labelMastered.textContent = "覚えた！";
+        } else {
+          answerArea.classList.add("hidden");
+          tapPrompt.classList.remove("hidden");
+          if (settings.actionMode === "two_step") {
+            labelReview.textContent = "解答を見る";
+            labelMastered.textContent = "解答を見る";
+          } else {
+            labelReview.textContent = "要復習";
+            labelMastered.textContent = "覚えた！";
+          }
+        }
+      }
+
+      function updateProgressHeader() {
+        const targetCards = getCardsByCurrentLevel();
+        const total = targetCards.length;
+        const mastered = targetCards.filter((c) => c.status === "mastered")
+          .length;
+
+        document.getElementById("stat-mastered-count").textContent = mastered;
+        document.getElementById("stat-total-count").textContent = total;
+
+        const masteredPct = total > 0 ? Math.round((mastered / total) * 100) : 0;
+        document.getElementById(
+          "progress-bar-mastered"
+        ).style.width = `${masteredPct}%`;
+        document.getElementById(
+          "stat-percent-badge"
+        ).textContent = `${masteredPct}%`;
+
+        populateLevelTabs();
+      }
+
+      // =========================================================================
+      // 5. Wiki Ctrl+A テキスト解析エンジン（フッター遮断・別表記・送り仮名自動赤字化）
+      // =========================================================================
+
+      // Lv.1 (#0101〜#0388) など、Wiki上で画像のみ貼られて「テキスト：」が空欄になっている問題について、
+      // 読みと意味解説文から元の漢字表記を自動推定・復元する辞書＆推論エンジン
+      const LV1_IMAGE_KANJI_MAP = {
+        Lv01_0101: "給食費",
+        Lv01_0102: "大好物",
+        Lv01_0103: "参加",
+        Lv01_0104: "牧場",
+        Lv01_0105: "苦労",
+        Lv01_0106: "梅[の]木",
+        Lv01_0107: "節分[の]日",
+        Lv01_0108: "微生物",
+        Lv01_0109: "世帯主",
+        Lv01_0110: "低[い]",
+        Lv01_0111: "利口",
+        Lv01_0112: "病気",
+        Lv01_0113: "落花生",
+        Lv01_0114: "講座",
+        Lv01_0115: "宣伝",
+        Lv01_0116: "独走",
+        Lv01_0117: "補給",
+        Lv01_0118: "臨時",
+        Lv01_0119: "届[ける]",
+        Lv01_0120: "舌[を]出[す]",
+        Lv01_0121: "防災",
+        Lv01_0122: "弁当箱",
+        Lv01_0123: "電源",
+        Lv01_0124: "青銅器",
+        Lv01_0125: "干[す]",
+        Lv01_0126: "粉雪",
+        Lv01_0127: "人工衛星",
+        Lv01_0128: "観衆",
+        Lv01_0129: "消防士",
+        Lv01_0130: "誠実",
+        Lv01_0131: "常備",
+        Lv01_0132: "属[する]",
+        Lv01_0133: "気持[ち]",
+        Lv01_0134: "山頂",
+        Lv01_0135: "校舎",
+        Lv01_0136: "秘密基地",
+        Lv01_0137: "枚数",
+        Lv01_0138: "反射",
+        Lv01_0139: "権利",
+        Lv01_0140: "枝分[かれ]",
+        Lv01_0141: "腹[が]立[つ]",
+        Lv01_0142: "比[べる]",
+        Lv01_0143: "運河",
+        Lv01_0144: "否決",
+        Lv01_0145: "音頭",
+        Lv01_0146: "街路樹",
+        Lv01_0147: "統合",
+        Lv01_0148: "読破",
+        Lv01_0149: "秋分[の]日",
+        Lv01_0150: "営[む]",
+        Lv01_0151: "綿飴",
+        Lv01_0152: "奮[い]立[つ]",
+        Lv01_0153: "担当",
+        Lv01_0154: "指揮者",
+        Lv01_0155: "取引",
+        Lv01_0156: "射[る]",
+        Lv01_0157: "胸[を]張[る]",
+        Lv01_0158: "灰色",
+        Lv01_0159: "一心不乱",
+        Lv01_0160: "定食",
+        Lv01_0161: "若[い]",
+        Lv01_0162: "手洗[い]",
+        Lv01_0163: "飼[う]",
+        Lv01_0164: "閉[じる]",
+        Lv01_0165: "捨[てる]",
+        Lv01_0166: "激[しい]",
+        Lv01_0167: "支[える]",
+        Lv01_0168: "縮[む]",
+        Lv01_0169: "鼻血",
+        Lv01_0170: "夕暮[れ]",
+        Lv01_0171: "再[び]",
+        Lv01_0172: "小刻[み]",
+        Lv01_0173: "並[ぶ]",
+        Lv01_0174: "毛染[め]",
+        Lv01_0175: "過[ぎる]",
+        Lv01_0176: "味[わう]",
+        Lv01_0177: "系統",
+        Lv01_0178: "復旧",
+        Lv01_0179: "開設",
+        Lv01_0180: "大変",
+        Lv01_0181: "宇宙食",
+        Lv01_0182: "帰宅",
+        Lv01_0183: "従[う]",
+        Lv01_0184: "黒潮",
+        Lv01_0185: "貧[しい]",
+        Lv01_0186: "切株",
+        Lv01_0187: "沿[う]",
+        Lv01_0188: "解消",
+        Lv01_0189: "標識",
+        Lv01_0190: "原因",
+        Lv01_0191: "改革",
+        Lv01_0192: "有意義",
+        Lv01_0193: "専念",
+        Lv01_0194: "略[す]",
+        Lv01_0195: "傷[つく]",
+        Lv01_0196: "留[まる]",
+        Lv01_0197: "想像",
+        Lv01_0198: "禁止",
+        Lv01_0199: "ラジオ体操",
+        Lv01_0200: "脳死",
+        Lv01_0201: "閉幕式",
+        Lv01_0202: "演[じる]",
+        Lv01_0203: "貸[す]",
+        Lv01_0204: "[お]断[り]",
+        Lv01_0205: "疑[う]",
+        Lv01_0206: "一刀両断",
+        Lv01_0207: "無理難題",
+        Lv01_0208: "営業",
+        Lv01_0209: "往来",
+        Lv01_0210: "痛快",
+        Lv01_0211: "栄養価",
+        Lv01_0212: "武者",
+        Lv01_0213: "秘境",
+        Lv01_0214: "願[う]",
+        Lv01_0215: "常[に]",
+        Lv01_0216: "河原",
+        Lv01_0217: "日照権",
+        Lv01_0218: "芸能人",
+        Lv01_0219: "景色",
+        Lv01_0220: "映像",
+        Lv01_0221: "世界遺産",
+        Lv01_0222: "軽装",
+        Lv01_0223: "経済",
+        Lv01_0224: "冷[える]",
+        Lv01_0225: "勇[ましい]",
+        Lv01_0226: "忘[れる]",
+        Lv01_0227: "久[しい]",
+        Lv01_0228: "減[らす]",
+        Lv01_0229: "最[も]",
+        Lv01_0230: "曲[げる]",
+        Lv01_0231: "豊[か]",
+        Lv01_0232: "様子",
+        Lv01_0233: "道案内",
+        Lv01_0234: "太陽",
+        Lv01_0235: "招[く]",
+        Lv01_0236: "寄[せる]",
+        Lv01_0237: "入力",
+        Lv01_0238: "試[みる]",
+        Lv01_0239: "村山市",
+        Lv01_0240: "坂井市",
+        Lv01_0241: "竹原市",
+        Lv01_0242: "川口市",
+        Lv01_0243: "島田市",
+        Lv01_0244: "田村市",
+        Lv01_0245: "投手",
+        Lv01_0246: "巻末",
+        Lv01_0247: "点呼",
+        Lv01_0248: "能率",
+        Lv01_0249: "放送",
+        Lv01_0250: "急増",
+        Lv01_0251: "[ごみ]収集車",
+        Lv01_0252: "実在",
+        Lv01_0253: "雄姿",
+        Lv01_0254: "区域",
+        Lv01_0255: "処方",
+        Lv01_0256: "中腹",
+        Lv01_0257: "敬老[の]日",
+        Lv01_0258: "九[つ]",
+        Lv01_0259: "円満",
+        Lv01_0260: "王様",
+        Lv01_0261: "下火",
+        Lv01_0262: "二枚貝",
+        Lv01_0263: "口[を]切[る]",
+        Lv01_0264: "左手",
+        Lv01_0265: "子育[て]",
+        Lv01_0266: "糸通[し]",
+        Lv01_0267: "絵文字",
+        Lv01_0268: "耳[に]入[れる]",
+        Lv01_0269: "夏休[み]",
+        Lv01_0270: "手玉[に]取[る]",
+        Lv01_0271: "大空",
+        Lv01_0272: "[お]月見",
+        Lv01_0273: "台車",
+        Lv01_0274: "雪女",
+        Lv01_0275: "小[さい]",
+        Lv01_0276: "森林",
+        Lv01_0277: "一人前",
+        Lv01_0278: "水切[り]",
+        Lv01_0279: "正[しい]",
+        Lv01_0280: "生[まれる]",
+        Lv01_0281: "青[い]",
+        Lv01_0282: "夕日",
+        Lv01_0283: "真[っ]赤",
+        Lv01_0284: "川辺",
+        Lv01_0285: "先生",
+        Lv01_0286: "草生[える]",
+        Lv01_0287: "早足",
+        Lv01_0288: "一休[さん]",
+        Lv01_0289: "徳川家定",
+        Lv01_0290: "石田三成",
+        Lv01_0291: "通[じる]",
+        Lv01_0292: "松平定信",
+        Lv01_0293: "坂本龍馬",
+        Lv01_0294: "中川清秀",
+        Lv01_0295: "名取市",
+        Lv01_0296: "大男",
+        Lv01_0297: "竹[の]子",
+        Lv01_0298: "中落[ち]",
+        Lv01_0299: "田[んぼ]",
+        Lv01_0300: "土[が]付[く]",
+        Lv01_0301: "水道橋駅",
+        Lv01_0302: "人間",
+        Lv01_0303: "見学",
+        Lv01_0304: "卵焼[き]",
+        Lv01_0305: "化石",
+        Lv01_0306: "百円玉",
+        Lv01_0307: "長文",
+        Lv01_0308: "本音",
+        Lv01_0309: "名前負[け]",
+        Lv01_0310: "空[く]",
+        Lv01_0311: "快晴",
+        Lv01_0312: "左右反転",
+        Lv01_0313: "[お]年玉",
+        Lv01_0314: "花火",
+        Lv01_0315: "足[りる]",
+        Lv01_0316: "引[っ]張[る]",
+        Lv01_0317: "二束三文",
+        Lv01_0318: "虫[の]知[らせ]",
+        Lv01_0319: "出[す]",
+        Lv01_0320: "金メダル",
+        Lv01_0321: "羽[を]伸[ばす]",
+        Lv01_0322: "雨雲",
+        Lv01_0323: "歩[く]",
+        Lv01_0324: "遠足",
+        Lv01_0325: "歌[う]",
+        Lv01_0326: "大会",
+        Lv01_0327: "出場",
+        Lv01_0328: "焼[き]魚",
+        Lv01_0329: "絵[の]具",
+        Lv01_0330: "氷山[の]一角",
+        Lv01_0331: "頭角[を]現[す]",
+        Lv01_0332: "楽[しい]",
+        Lv01_0333: "時間",
+        Lv01_0334: "丸[い]",
+        Lv01_0335: "岩石",
+        Lv01_0336: "顔[が]広[い]",
+        Lv01_0337: "汽車",
+        Lv01_0338: "記入",
+        Lv01_0339: "弓[を]引[く]",
+        Lv01_0340: "牛肉",
+        Lv01_0341: "東京都",
+        Lv01_0342: "強力",
+        Lv01_0343: "兄上",
+        Lv01_0344: "余計",
+        Lv01_0345: "元気",
+        Lv01_0346: "午後",
+        Lv01_0347: "線引[き]",
+        Lv01_0348: "七夕",
+        Lv01_0349: "考[える]",
+        Lv01_0350: "高[い]",
+        Lv01_0351: "合図",
+        Lv01_0352: "大黒柱",
+        Lv01_0353: "天才",
+        Lv01_0354: "耕[す]",
+        Lv01_0355: "志願兵",
+        Lv01_0356: "数[え]歌",
+        Lv01_0357: "市長",
+        Lv01_0358: "手紙",
+        Lv01_0359: "足首",
+        Lv01_0360: "秋風",
+        Lv01_0361: "少[し]",
+        Lv01_0362: "新[しい]",
+        Lv01_0363: "点字",
+        Lv01_0364: "東西",
+        Lv01_0365: "星形",
+        Lv01_0366: "走[る]",
+        Lv01_0367: "池",
+        Lv01_0368: "日本刀",
+        Lv01_0369: "ライ麦",
+        Lv01_0370: "風車",
+        Lv01_0371: "電気",
+        Lv01_0372: "雷門",
+        Lv01_0373: "魚座",
+        Lv01_0374: "半分",
+        Lv01_0375: "答[える]",
+        Lv01_0376: "小鳥",
+        Lv01_0377: "朝方",
+        Lv01_0378: "当日",
+        Lv01_0379: "歩道橋",
+        Lv01_0380: "荷物",
+        Lv01_0381: "天国",
+        Lv01_0382: "地区",
+        Lv01_0383: "野球場",
+        Lv01_0384: "大根",
+        Lv01_0385: "小野小町",
+        Lv01_0386: "糸島市",
+        Lv01_0387: "岩出市",
+        Lv01_0388: "失笑",
+      };
+
+      // ID文字列とページヒントから標準化されたID（例: Lv01_0001, Lv08_0001）を生成する関数
+      function normalizeWikiCardId(rawIdStr, pageLevelHint) {
+        const s = String(rawIdStr || "")
+          .replace(/^ID[:：]\s*/i, "")
+          .trim();
+
+        // 1. 既に Lv05_0001, Lv8_001, Lv.8-001 形式の場合
+        const stdMatch = s.match(/^Lv\.?0?(\d+)[_-](\d+)$/i);
+        if (stdMatch) {
+          const lv = String(parseInt(stdMatch[1], 10)).padStart(2, "0");
+          const num = stdMatch[2].padStart(4, "0");
+          return `Lv${lv}_${num}`;
+        }
+        // 2. Lv080001, 080001, 08_0001, 8_001 形式の場合
+        const lvNumMatch = s.match(/^(?:Lv\.?)?0?([1-8])[_-]?(\d{3,4})$/i);
+        if (lvNumMatch) {
+          const lv = String(parseInt(lvNumMatch[1], 10)).padStart(2, "0");
+          const num = lvNumMatch[2].padStart(4, "0");
+          return `Lv${lv}_${num}`;
+        }
+        // 3. 5桁数字 (00001〜: Lv.2でよく使われる形式)
+        if (/^\d{5}$/.test(s)) {
+          const lv = pageLevelHint || "02";
+          const num = String(parseInt(s, 10)).padStart(4, "0");
+          return `Lv${lv}_${num}`;
+        }
+        // 4. 1〜4桁数字 (0001〜, 001〜: Lv.1やLv.8等でよく使われる形式)
+        if (/^\d{1,4}$/.test(s)) {
+          const lv = pageLevelHint || "01";
+          const num = String(parseInt(s, 10)).padStart(4, "0");
+          return `Lv${lv}_${num}`;
+        }
+        return s;
+      }
+
+      // ページ全体のテキストから対象レベル番号（"01"〜"08"）を正確に推定する関数
+      // ※アットウィキのヘッダー・サイドメニューに含まれる「Lv.1 (ID:1~510)」に惑わされないよう、
+      //   「漢字でGOのレベルXの問題集」や問題ID自体のプレフィックスを優先参照する
+      function detectWikiPageLevelHint(lines) {
+        const overrideSelect = document.getElementById("import-level-override");
+        if (overrideSelect && overrideSelect.value !== "AUTO") {
+          return overrideSelect.value;
+        }
+
+        // 1. 本文中の「漢字でGOのレベルXの問題集」または「Lv.Xの問題集」を探す
+        for (let i = 0; i < Math.min(lines.length, 80); i++) {
+          const m =
+            lines[i].match(/漢字でGOのレベル\s*0?([1-8])/i) ||
+            lines[i].match(/レベル\s*0?([1-8])\s*の問題集/i);
+          if (m) return String(parseInt(m[1], 10)).padStart(2, "0");
+        }
+
+        // 2. パンくずリスト「atwiki ... Lv.X (ID:...)」を探す
+        for (let i = 0; i < Math.min(lines.length, 40); i++) {
+          if (lines[i].includes("@wiki") && /Lv\.?\s*0?([1-8])/i.test(lines[i])) {
+            const m = lines[i].match(/Lv\.?\s*0?([1-8])/i);
+            if (m) return String(parseInt(m[1], 10)).padStart(2, "0");
+          }
+        }
+
+        // 3. 問題ID行自体に含まれる Lv0X や 080001 から推定
+        for (let i = 0; i < lines.length; i++) {
+          const m = lines[i].match(/^ID[:：]\s*(?:Lv\.?)?0?([1-8])[_-]?\d{3,4}/i);
+          if (m) return String(parseInt(m[1], 10)).padStart(2, "0");
+        }
+
+        // 4. 単一行の「Lv.8 (ID:1~100)」見出し（直後に「最終更新：」があるメインタイトル）を探す
+        for (let i = 0; i < Math.min(lines.length, 45); i++) {
+          const m = lines[i].match(/^Lv\.?\s*0?([1-8])\s*[(（]ID/i);
+          if (m && lines[i + 1] && /^最終更新/.test(lines[i + 1])) {
+            return String(parseInt(m[1], 10)).padStart(2, "0");
+          }
+        }
+
+        return null;
+      }
+
+      // 読み文字列から (ぐうぞうすうはい} のような括弧ゴミや末尾の「等」を除去して配列化
+      function cleanReadingsList(rawReadingStr) {
+        const cleaned = String(rawReadingStr || "")
+          .replace(/[\s　]*等$/, "")
+          .replace(/[()（）{}｛｝\[\]「」『』]/g, "")
+          .trim();
+        return cleaned
+          .split(/[、,，／/]/)
+          .map((r) => r.trim())
+          .filter(Boolean);
+      }
+
+      // テキスト欄から ※注記 や残存IDS記述を取り除き、補足情報と分離する
+      function sanitizeKanjiTextField(rawKanji) {
+        let text = String(rawKanji || "").trim();
+        let note = "";
+        // 「※『屮』とは別字。」などの注記を分離
+        const noteMatch = text.match(/[\s　]*(※.+)$/);
+        if (noteMatch) {
+          note = noteMatch[1].trim();
+          text = text.replace(/[\s　]*※.+$/, "").trim();
+        }
+        // 末尾に「IDS：」だけ残っているケースを除去
+        text = text.replace(/[\s　]*IDS[:：]\s*$/i, "").trim();
+        return { text, note };
+      }
+
+      // タグ配列から imageプラグインエラー や 典拠URL、ページ移動リンクなどのノイズを除去
+      function cleanTagsArray(tags) {
+        const cleaned = [];
+        (tags || []).forEach((t) => {
+          const s = String(t || "").trim();
+          if (!s) return;
+          if (
+            /^imageプラグインエラー/i.test(s) ||
+            s === ":" ||
+            /^ご指定のファイルが見つかりません/.test(s) ||
+            /^\(ID[A-Za-z0-9_.-]+\.png\)$/i.test(s) ||
+            /^ID[:：]\d+~\d*/i.test(s) ||
+            /^典拠[:：]/i.test(s) ||
+            /^https?:\/\//i.test(s) ||
+            /^🔗/.test(s) ||
+            /^※この問題は現在非表示/.test(s) ||
+            /^※ここから先は/.test(s) ||
+            /^文字数と行数の上限の都合により/.test(s)
+          ) {
+            return;
+          }
+          if (!cleaned.includes(s)) cleaned.push(s);
+        });
+        return cleaned;
+      }
+
+      // タグ1件を正規化する（表記ゆれの統一・作業メモの除去）。
+      // 除去すべきタグなら null を返す。
+      function normalizeTagToken(tag) {
+        let s = String(tag || "").trim();
+        if (!s) return null;
+        // 「(地名・建造物?)」のような括弧・疑問符付きの表記ゆれを統一
+        const bare = s.replace(/^[（(]\s*/, "").replace(/\s*[?？]?\s*[)）]$/, "");
+        if (bare !== s && /^地名・建造物[?？]?$/.test(bare)) s = "地名・建造物";
+        // Wiki編集者向けの作業メモはタグではないので除去
+        if (/^以降追加予定$/.test(s)) return null;
+        return s;
+      }
+
+      // ------------------------------------------------------------
+      // 元データ（Wiki転記）の明らかな誤記に対する個別補正パッチ
+      // ・各パッチは「元の値」と一致するときだけ適用するため、何度実行しても同じ結果になる（冪等）
+      // ・手で直した後のカードや、元データ側が修正済みのカードには触らない
+      // ・学習状況（status / reviewCount）は一切変更しない
+      // ------------------------------------------------------------
+      const KNOWN_DATA_PATCHES = [
+        // --- 漢字表記の誤記 ---
+        { id: "Lv02_0026", kanjiFrom: "肝試[い]", kanji: "肝試[し]" },
+        { id: "Lv03_0020", kanjiFrom: "錦化鳥", kanji: "錦花鳥", note: true },
+        { id: "Lv03_0234", kanjiFrom: "触", kanji: "触肢", note: true },
+        { id: "Lv03_0297", kanjiFrom: "億度", kanji: "臆度", note: true },
+        { id: "Lv04_0224", kanjiFrom: "しこつこ", kanji: "支笏湖" },
+        { id: "Lv04_0274", kanjiFrom: "絆[す]", kanji: "絆[される]" },
+        { id: "Lv04_0295", kanjiFrom: "末枯[れう]", kanji: "末枯[れる]" },
+        { id: "Lv04_0315", kanjiFrom: "耕損", kanji: "耗損", note: true },
+        { id: "Lv04_0416", kanjiFrom: "琳巴節", kanji: "淋巴節", note: true },
+        { id: "Lv05_1158", kanjiFrom: "塵尾", kanji: "麈尾", note: true },
+        { id: "Lv05_2010", kanjiFrom: "蚊龍雲雨[を]得", kanji: "蛟龍雲雨[を]得", note: true },
+
+        // --- 読みの誤記・欠落 ---
+        { id: "Lv03_0299", readingsFrom: ["しゃふつ", "しょふつしょうどく"], readings: ["しゃふつしょうどく", "しょふつしょうどく"] },
+        { id: "Lv04_0406", readingsFrom: ["しゃうはくのみさお"], readings: ["しょうはくのみさお"] },
+        { id: "Lv04_0682", readingsFrom: ["ごろね", "うたた"], readings: ["ごろね", "うたたね"] },
+        { id: "Lv04_1176", readingsFrom: ["どはつてんをつくｋ"], readings: ["どはつてんをつく"] },
+        { id: "Lv04_1285", readingsFrom: ["かんこうれい"], readings: ["かんこうれいをしく"] },
+        { id: "Lv05_0190", readingsFrom: ["すうろうのがく"], readings: ["すうろのがく"] },
+
+        // --- 意味欄の誤変換・タイプミス ---
+        { id: "Lv03_0108", meaningFrom: "ほとげる", meaning: "ほどける" },
+        { id: "Lv03_0118", meaningFrom: "豚刻", meaning: "彫刻" },
+        { id: "Lv03_0130", meaningFrom: "クジラウン目", meaning: "クジラウシ目" },
+        { id: "Lv03_0251", meaningFrom: "書を与える", meaning: "害を与える" },
+        { id: "Lv03_0309", meaningFrom: "落葉広葉様", meaning: "落葉広葉樹" },
+        { id: "Lv03_0439", meaningFrom: "設けたむる", meaning: "設けたむろ" },
+        { id: "Lv04_0258", meaningFrom: "日本の触腕", meaning: "二本の触腕" },
+        { id: "Lv04_0322", meaningFrom: "がらんじんをを", meaning: "がらんじんを" },
+        { id: "Lv04_0464", meaningFrom: "不要ななった", meaning: "不要になった" },
+        { id: "Lv04_0522", meaningFrom: "茶色が買った", meaning: "茶色がかった" },
+        { id: "Lv04_1221", meaningFrom: "簀ｓ", meaning: "簀す" },
+        { id: "Lv04_1311", meaningFrom: "だまっていｒて", meaning: "だまっていて" },
+        { id: "Lv05_0452", meaningFrom: "ｊモッコク", meaning: "モッコク" },
+        { id: "Lv06_1230", meaningFrom: "ネコ目ヒグマ科", meaning: "ネコ目クマ科" },
+      ];
+
+      // カード1枚に既知の補正パッチを適用する。変更があれば true を返す。
+      function applyKnownDataPatchesToCard(card) {
+        const plain = (s) => String(s || "").replace(/[\[\]]/g, "").trim();
+        let changed = false;
+        KNOWN_DATA_PATCHES.forEach((p) => {
+          if (p.id !== card.id) return;
+
+          if (p.kanji && plain(card.kanji) === plain(p.kanjiFrom)) {
+            card.kanji = p.kanji;
+            if (p.note) {
+              const noteText = `（補正：元データ表記「${plain(p.kanjiFrom)}」）`;
+              if (!String(card.meaning || "").includes(noteText)) {
+                card.meaning = `${card.meaning || ""}${noteText}`;
+              }
+            }
+            changed = true;
+          }
+
+          if (
+            p.readings &&
+            (card.readings || []).join("、") === p.readingsFrom.join("、")
+          ) {
+            card.readings = [...p.readings];
+            changed = true;
+          }
+
+          if (
+            p.meaningFrom &&
+            String(card.meaning || "").includes(p.meaningFrom)
+          ) {
+            card.meaning = card.meaning.split(p.meaningFrom).join(p.meaning);
+            changed = true;
+          }
+        });
+        return changed;
+      }
+
+      // カード配列全体に既知の補正パッチを適用し、変更したカード数を返す
+      function applyKnownDataPatches(cards) {
+        let count = 0;
+        (cards || []).forEach((card) => {
+          if (applyKnownDataPatchesToCard(card)) count++;
+        });
+        return count;
+      }
+
+      // 漢字と仮名が混じるテキスト（例：「滔る」「翌る日」「鬩ぎ合い」「鯔のつまり」）から
+      // 読みと一致する送り仮名部分を自動で [ ] で囲んで赤字化する関数
+      function autoBracketOkurigana(kanjiText, readings) {
+        if (!kanjiText || /\[.+?\]/.test(kanjiText)) return kanjiText;
+
+        // 漢字が含まれていない場合や、ひらがなが含まれていない場合はそのまま返す
+        const hasKanji = /[一-龠々〆ヵヶ𠀀-\u{32FFF}]/u.test(kanjiText);
+        const hasHiragana = /[ぁ-ん]/.test(kanjiText);
+        if (!hasKanji || !hasHiragana) return kanjiText;
+
+        // テキストを「漢字等の塊」と「ひらがなの塊」に分解
+        const tokens = kanjiText.match(/[ぁ-ん]+|[^ぁ-ん]+/g);
+        if (!tokens || tokens.length < 2) return kanjiText;
+
+        // 読み候補のうち、ひらがな塊の並び順が一致するかチェック
+        const kanaRegexStr =
+          "^" +
+          tokens
+            .map((tk) =>
+              /^[ぁ-ん]+$/.test(tk)
+                ? tk.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+                : ".+"
+            )
+            .join("") +
+          "$";
+        const matcher = new RegExp(kanaRegexStr);
+        const matchedReading = (readings || []).some((r) =>
+          matcher.test(r.trim())
+        );
+
+        // 読みとパターンが合致する（または末尾がひらがな送り仮名になっている）場合、ひらがな部分を [ ] で囲む
+        if (matchedReading || /^[ぁ-ん]+$/.test(tokens[tokens.length - 1])) {
+          return tokens
+            .map((tk) => (/^[ぁ-ん]+$/.test(tk) ? `[${tk}]` : tk))
+            .join("");
+        }
+        return kanjiText;
+      }
+
+      // Wikiの Ctrl+A 全選択テキストから問題カード配列と統計情報を抽出する純粋関数
+      function parseWikiRawText(rawText) {
+        const lines = (rawText || "")
+          .replace(/\r\n/g, "\n")
+          .split("\n")
+          .map((l) => l.trim());
+
+        const pageLevelHint = detectWikiPageLevelHint(lines);
+
+        const parsedCards = [];
+        let current = null;
+        let skippedHeaderLines = 0;
+        let skippedFooterLines = 0;
+        let autoOkuriganaCount = 0;
+        let altFormsCount = 0;
+        let recoveredEmptyTextCount = 0;
+        let inFooter = false;
+
+        // 最終問題の直後に出現するWikiフッターの開始判定正規表現
+        const footerStartRegex =
+          /^(ID[:：]\d+~\d+|タグ[:：]|記事メニュー|\d+いいね！|「.+」をウィキ内検索|このWikiのTOPへ|最近更新された|人気記事ランキング|急上昇Wikiランキング)/;
+
+        // カード確定時の最終整形処理
+        const finalizeCard = (card) => {
+          if (!card) return;
+          // Lv.1 (#0101〜#0388) 等の画像化問題について辞書から漢字表記を復元
+          if (
+            (!card.kanji || card.kanji.includes("外字画像")) &&
+            LV1_IMAGE_KANJI_MAP[card.id]
+          ) {
+            card.kanji = LV1_IMAGE_KANJI_MAP[card.id];
+            recoveredEmptyTextCount++;
+          }
+          // Lv.7やLv.8の外字画像問題でテキストが空欄の場合は〓で補完
+          if (!card.kanji && (card.ids || card.meaning || card.source)) {
+            card.kanji = card.ids ? `〓` : "〓（外字画像）";
+            recoveredEmptyTextCount++;
+          }
+          if (!card.kanji) return;
+          card.tags = cleanTagsArray(card.tags);
+          parsedCards.push(card);
+        };
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line) continue;
+
+          // フッター開始行の判定（ID:1~500 などのページ移動リンクを問題IDと誤認しないよう先に判定）
+          if (/^ID[:：]\s*\d+~\d+/i.test(line)) {
+            if (current) {
+              inFooter = true;
+              skippedFooterLines++;
+            } else {
+              skippedHeaderLines++;
+            }
+            continue;
+          }
+
+          // 問題ID行の検出（Lv.1〜Lv.8の多様なID表記ゆれにすべて対応）：
+          // パターン1: スペース区切り (例: "ID:Lv05_0001　はびこる" / "ID:Lv08_0001 せい" / "ID:0001 ごうきゅう")
+          // パターン2: スペースなし直結 (例: "ID:0101あう" / "ID:00001あいず" / "ID:080001せい" / "ID:Lv08_0001せい")
+          // パターン3: IDのみ単独行で次行に読みがあるケース
+          let idMatch = line.match(
+            /^ID[:：]\s*([A-Za-z0-9_.-]+)[\s　]+(.+)$/i
+          );
+          if (!idMatch) {
+            idMatch = line.match(
+              /^ID[:：]\s*((?:Lv\.?0?[1-8][_-]?)?\d{2,6})\s*([^\dA-Za-z_\s].*)$/i
+            );
+          }
+
+          if (idMatch) {
+            inFooter = false;
+            finalizeCard(current);
+
+            const rawId = idMatch[1].trim();
+            const normalizedId = normalizeWikiCardId(rawId, pageLevelHint);
+            const readings = cleanReadingsList(idMatch[2]);
+
+            current = {
+              id: normalizedId,
+              kanji: "",
+              readings,
+              ids: "",
+              altForms: "",
+              meaning: "",
+              source: "",
+              tags: [],
+              status: "unlearned",
+              reviewCount: 0,
+            };
+            continue;
+          }
+
+          // まだ最初の問題IDに到達していない場合はWiki上部ヘッダーとしてスキップ
+          if (!current) {
+            skippedHeaderLines++;
+            continue;
+          }
+
+          // フッター開始行に達したら、以降の行をすべて遮断
+          if (inFooter || footerStartRegex.test(line)) {
+            inFooter = true;
+            skippedFooterLines++;
+            continue;
+          }
+
+          // imageプラグインエラー行は無視
+          if (
+            /^imageプラグインエラー/i.test(line) ||
+            /^ご指定のファイルが見つかりません/.test(line)
+          ) {
+            continue;
+          }
+
+          // テキスト行（先頭に { が付いた `{テキスト：姫〓鼱` 等のWiki編集ミス・IDS併記・※注記・空欄にも対応）
+          if (/^[⎯"{｛\s]*テキスト[:：]/.test(line)) {
+            let textPart = line
+              .replace(/^[⎯"{｛\s]*テキスト[:：]\s*/, "")
+              .replace(/[}｝]+$/, "")
+              .trim();
+            const idsMatch = textPart.match(/[\s　]+IDS[:：]\s*(.*)$/i);
+            if (idsMatch) {
+              if (idsMatch[1].trim()) current.ids = idsMatch[1].trim();
+              textPart = textPart
+                .replace(/[\s　]+IDS[:：]\s*(.*)$/i, "")
+                .trim();
+            }
+            const sanitized = sanitizeKanjiTextField(textPart);
+            textPart = sanitized.text;
+            if (sanitized.note && !current.meaning.includes(sanitized.note)) {
+              current.meaning = current.meaning
+                ? `${current.meaning}（${sanitized.note}）`
+                : sanitized.note;
+            }
+            const bracketed = autoBracketOkurigana(textPart, current.readings);
+            if (bracketed !== textPart) autoOkuriganaCount++;
+            current.kanji = bracketed;
+            continue;
+          }
+
+          // 独立したIDS行
+          if (/^[⎯"{｛\s]*IDS[:：]/i.test(line)) {
+            const idsVal = line
+              .replace(/^[⎯"{｛\s]*IDS[:：]\s*/i, "")
+              .replace(/[}｝]+$/, "")
+              .trim();
+            if (idsVal) current.ids = idsVal;
+            continue;
+          }
+
+          // 意味行（先頭に { や " が付いているWiki編集ミス `{意味：...` にも対応）
+          if (/^[⎯"{｛\s]*意味[:：]/.test(line)) {
+            let mText = line
+              .replace(/^[⎯"{｛\s]*意味[:：]\s*/, "")
+              .replace(/🔗典拠/g, "")
+              .replace(/🔗リンク/g, "")
+              .trim();
+            mText = mText
+              .replace(/[\s　]*典拠[:：]\s*\S+/gi, "")
+              .replace(/[}｝"]+$/, "")
+              .trim();
+            current.meaning = mText;
+            continue;
+          }
+
+          // 別表記行（例: "別表記：通草、丁翁"）
+          if (/^別表記[:：]/.test(line)) {
+            current.altForms = line.replace(/^別表記[:：]\s*/, "").trim();
+            altFormsCount++;
+            continue;
+          }
+
+          // 別読み行（例: "別読み：へつぼつ" -> 正解の読みリストへ統合）
+          if (/^別読み[:：]/.test(line)) {
+            const extraReadings = cleanReadingsList(
+              line.replace(/^別読み[:：]\s*/, "")
+            );
+            extraReadings.forEach((r) => {
+              if (!current.readings.includes(r)) current.readings.push(r);
+            });
+            continue;
+          }
+
+          // 補足行（例: "補足：『左』の異体字。" -> 意味欄へ補足統合）
+          if (/^補足[:：]/.test(line)) {
+            const sup = line.replace(/^補足[:：]\s*/, "").trim();
+            if (sup) {
+              current.meaning = current.meaning
+                ? `${current.meaning}（補足：${sup}）`
+                : `補足：${sup}`;
+            }
+            continue;
+          }
+
+          // 典拠URL行はタグに混ぜずスキップ
+          if (/^典拠[:：]/i.test(line)) {
+            continue;
+          }
+
+          // 元作品行
+          if (/^元作品[:：]/.test(line)) {
+            current.source = line
+              .replace(/^元作品[:：]\s*/, "")
+              .replace(/🔗典拠/g, "")
+              .trim();
+            continue;
+          }
+
+          // それ以外の行は条件タグ行（全角/半角スペース区切り）として処理
+          const tokens = line
+            .split(/[\s　]+/)
+            .map((t) => t.trim())
+            .filter(Boolean);
+          tokens.forEach((rawTk) => {
+            const tk = normalizeTagToken(rawTk);
+            if (!tk) return;
+            if (/^補足[:：]/.test(tk)) {
+              const sup = tk.replace(/^補足[:：]\s*/, "").trim();
+              if (sup && !String(current.meaning || "").includes(sup)) {
+                current.meaning = current.meaning
+                  ? `${current.meaning}（補足：${sup}）`
+                  : `補足：${sup}`;
+              }
+              return;
+            }
+            if (!current.tags.includes(tk)) {
+              current.tags.push(tk);
+            }
+          });
+        }
+
+        finalizeCard(current);
+
+        return {
+          cards: parsedCards,
+          skippedHeaderLines,
+          skippedFooterLines,
+          autoOkuriganaCount,
+          altFormsCount,
+          recoveredEmptyTextCount,
+        };
+      }
+
+      // 既に登録されているデータの一括修復・クリーニング機能
+      function repairAndCleanExistingCards() {
+        let fixedIdCount = 0;
+        let cleanedTagCount = 0;
+        let cleanedReadingCount = 0;
+        let recoveredMeaningCount = 0;
+        let restoredKanjiCount = 0;
+        let removedDuplicateCount = 0;
+        let movedSupplementCount = 0;
+        let patchedCount = 0;
+
+        const repairedMap = new Map();
+
+        allCards.forEach((card) => {
+          const c = { ...card };
+
+          // 1. IDの正規化（0001〜0100 -> Lv01_0001、00014 -> Lv03_0014）
+          const oldId = String(c.id || "").trim();
+          let newId = oldId;
+          if (oldId === "00014") {
+            newId = "Lv03_0014";
+          } else {
+            newId = normalizeWikiCardId(oldId, null);
+          }
+          if (newId !== oldId) {
+            c.id = newId;
+            delete c.level;
+            fixedIdCount++;
+          }
+
+          // 2. 読みの括弧ゴミ `(ぐうぞうすうはい}` 等のクリーニング
+          const rawReadingsStr = (c.readings || []).join("、");
+          const cleanedReadings = cleanReadingsList(rawReadingsStr);
+          if (cleanedReadings.join("、") !== rawReadingsStr) {
+            c.readings = cleanedReadings;
+            cleanedReadingCount++;
+          }
+
+          // 3. タグに混入した `{テキスト：...`, `{意味：...`, `IDS：...`, `別読み：...` の救出とノイズ除去
+          const remainingTags = [];
+          (c.tags || []).forEach((t) => {
+            const s = String(t || "").trim();
+            if (/^[⎯"{｛\s]*テキスト[:：]/.test(s)) {
+              const tVal = s
+                .replace(/^[⎯"{｛\s]*テキスト[:：]\s*/, "")
+                .replace(/[}｝"]+$/, "")
+                .trim();
+              if (tVal) {
+                c.kanji = autoBracketOkurigana(tVal, c.readings);
+                restoredKanjiCount++;
+              }
+              return;
+            }
+            if (/^[⎯"{｛\s]*IDS[:：]/i.test(s)) {
+              const iVal = s
+                .replace(/^[⎯"{｛\s]*IDS[:：]\s*/i, "")
+                .replace(/[}｝"]+$/, "")
+                .trim();
+              if (iVal && !c.ids) c.ids = iVal;
+              return;
+            }
+            if (/^[⎯"{｛\s]*意味[:：]/.test(s)) {
+              const mVal = s
+                .replace(/^[⎯"{｛\s]*意味[:：]\s*/, "")
+                .replace(/[\s　]*典拠[:：]\s*\S+/gi, "")
+                .replace(/["}］]+$/, "")
+                .trim();
+              if (mVal && !c.meaning) {
+                c.meaning = mVal;
+                recoveredMeaningCount++;
+              }
+              return;
+            }
+            // Lv06_1266のように複数行に分割された意味の後半がタグに入っている場合の救出
+            if (
+              !c.meaning &&
+              /まとめたもの。$/.test(s) &&
+              !s.includes("指定")
+            ) {
+              c.meaning = (c.meaning ? c.meaning : "") + s;
+              return;
+            }
+            if (/^別読み[:：]/.test(s)) {
+              const extra = cleanReadingsList(s.replace(/^別読み[:：]\s*/, ""));
+              extra.forEach((r) => {
+                if (!c.readings.includes(r)) c.readings.push(r);
+              });
+              return;
+            }
+            // タグに紛れ込んだ「補足：…」は意味欄の末尾へ移す
+            if (/^補足[:：]/.test(s)) {
+              const sup = s.replace(/^補足[:：]\s*/, "").trim();
+              if (sup && !String(c.meaning || "").includes(sup)) {
+                c.meaning = c.meaning
+                  ? `${c.meaning}（補足：${sup}）`
+                  : `補足：${sup}`;
+              }
+              movedSupplementCount++;
+              return;
+            }
+            const normalized = normalizeTagToken(s);
+            if (normalized) remainingTags.push(normalized);
+          });
+
+          const finalTags = cleanTagsArray(remainingTags);
+          const prevTagsStr = (c.tags || []).map((t) => String(t || "").trim()).join("\u0001");
+          if (finalTags.join("\u0001") !== prevTagsStr) {
+            cleanedTagCount++;
+          }
+          c.tags = finalTags;
+
+          // 4. Lv.1 (#0101〜#0388) の「〓（外字画像）」を本来の漢字表記へ自動復元
+          if (
+            (!c.kanji || c.kanji.includes("外字画像")) &&
+            LV1_IMAGE_KANJI_MAP[c.id]
+          ) {
+            c.kanji = LV1_IMAGE_KANJI_MAP[c.id];
+            restoredKanjiCount++;
+          }
+
+          // 5. 漢字欄の `※...` 注記・残存 `IDS：` 除去と送り仮名括弧の再判定
+          const sanitized = sanitizeKanjiTextField(c.kanji);
+          c.kanji = autoBracketOkurigana(sanitized.text, c.readings);
+          if (
+            sanitized.note &&
+            c.meaning &&
+            !c.meaning.includes(sanitized.note)
+          ) {
+            c.meaning = `${c.meaning}（${sanitized.note}）`;
+          }
+
+          // 5.5 元データの既知の誤記（漢字・読み・意味）を個別補正
+          if (applyKnownDataPatchesToCard(c)) patchedCount++;
+
+          // 6. 重複IDがある場合は学習進捗・より詳しいフィールドを保持してマージ
+          if (repairedMap.has(c.id)) {
+            const prev = repairedMap.get(c.id);
+            if (prev.status !== "unlearned") c.status = prev.status;
+            c.reviewCount = Math.max(prev.reviewCount || 0, c.reviewCount || 0);
+            if (!c.meaning && prev.meaning) c.meaning = prev.meaning;
+            if (c.kanji.includes("外字画像") && !prev.kanji.includes("外字画像")) {
+              c.kanji = prev.kanji;
+            }
+            removedDuplicateCount++;
+          }
+          repairedMap.set(c.id, c);
+        });
+
+        allCards = Array.from(repairedMap.values()).sort(compareCardIds);
+        saveCards();
+        populateLevelTabs();
+        populateTagOptions();
+        applyFilters(true, false);
+        renderManageList();
+
+        showToast(
+          `修復完了！ 漢字復元:${restoredKanjiCount}件 / 誤記補正:${patchedCount}件 / 重複統合:${removedDuplicateCount}件 / タグ掃除:${cleanedTagCount}件（補足→意味欄:${movedSupplementCount}件）`
+        );
+      }
+
+      // テキストエリア入力時のリアルタイムプレビュー表示
+      function previewWikiInput() {
+        const raw = document.getElementById("wiki-paste-input").value;
+        const box = document.getElementById("parse-preview-box");
+        if (!raw || !raw.trim()) {
+          box.classList.add("hidden");
+          return;
+        }
+
+        const result = parseWikiRawText(raw);
+        box.classList.remove("hidden");
+
+        const titleEl = document.getElementById("preview-summary-title");
+        const rangeEl = document.getElementById("preview-id-range");
+        const statsEl = document.getElementById("preview-detail-stats");
+
+        if (result.cards.length === 0) {
+          titleEl.textContent = "問題パターン（ID:Lv...）が見つかりません";
+          rangeEl.textContent = "";
+          statsEl.innerHTML =
+            "<span>Wikiの問題ページを Ctrl+A でコピーして貼り付けてください。</span>";
+          return;
+        }
+
+        const firstId = result.cards[0].id;
+        const lastId = result.cards[result.cards.length - 1].id;
+        titleEl.textContent = `${result.cards.length}問のカードを検出しました`;
+        rangeEl.textContent = `${firstId} 〜 ${lastId}`;
+        statsEl.innerHTML = `
+          <span><i class="fa-solid fa-highlighter text-red-400 mr-1"></i>送り仮名自動赤字: <b>${result.autoOkuriganaCount}</b>件</span>
+          <span><i class="fa-solid fa-tags text-teal-400 mr-1"></i>別表記抽出: <b>${result.altFormsCount}</b>件</span>
+          <span><i class="fa-solid fa-puzzle-piece text-indigo-400 mr-1"></i>外字空欄補完: <b>${result.recoveredEmptyTextCount}</b>件</span>
+          <span><i class="fa-solid fa-filter-circle-xmark text-slate-400 mr-1"></i>除去したヘッダー/フッター: <b>${result.skippedHeaderLines + result.skippedFooterLines}</b>行</span>
+        `;
+      }
+
+      // 解析したカード配列を本体データにマージ保存する共通処理
+      function mergeImportedCards(parsedCards) {
+        if (!parsedCards || parsedCards.length === 0) {
+          showToast("有効な問題データが見つかりませんでした");
+          return;
+        }
+
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        parsedCards.forEach((newCard) => {
+          const existingIdx = allCards.findIndex((c) => c.id === newCard.id);
+          if (existingIdx !== -1) {
+            newCard.status = allCards[existingIdx].status;
+            newCard.reviewCount = allCards[existingIdx].reviewCount;
+            allCards[existingIdx] = newCard;
+            updatedCount++;
+          } else {
+            allCards.push(newCard);
+            addedCount++;
+          }
+        });
+
+        // Wikiから再取り込みしても既知の誤記補正が消えないよう、保存前に再適用する
+        applyKnownDataPatches(parsedCards);
+
+        allCards.sort(compareCardIds);
+        const importedLevel = extractCardLevel(parsedCards[0]);
+        filterLevel = importedLevel;
+        currentChunkIndex = -1;
+
+        saveCards();
+        populateLevelTabs();
+        populateTagOptions();
+        applyFilters(true, false);
+        renderManageList();
+
+        showToast(
+          `${importedLevel} に追加:${addedCount}件 / 更新:${updatedCount}件 を反映しました！`
+        );
+      }
+
+      function parseAndImportWikiText() {
+        const raw = document.getElementById("wiki-paste-input").value;
+        if (!raw.trim()) {
+          showToast("Wikiのテキストを貼り付けてください");
+          return;
+        }
+        const result = parseWikiRawText(raw);
+        mergeImportedCards(result.cards);
+        clearPasteInput();
+      }
+
+      // .txtファイル（複数選択可）からの直接インポート
+      function importWikiTxtFiles(event) {
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+
+        let totalMerged = [];
+        let loaded = 0;
+
+        files.forEach((file) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const text = e.target.result || "";
+            const res = parseWikiRawText(text);
+            totalMerged = totalMerged.concat(res.cards);
+            loaded++;
+            if (loaded === files.length) {
+              mergeImportedCards(totalMerged);
+            }
+          };
+          reader.readAsText(file, "UTF-8");
+        });
+        event.target.value = "";
+      }
+
+      function clearPasteInput() {
+        document.getElementById("wiki-paste-input").value = "";
+        document.getElementById("parse-preview-box").classList.add("hidden");
+      }
+
+      function insertSampleWikiText() {
+        const sample = `atwiki-logo
+新規作成
+編集
+漢字でGO！ 問題集 @wiki | Lv.5 (ID:1~500)
+送り仮名がついているところは赤色にしています。
+
+ID:Lv05_0008　くどい
+テキスト：諄い
+意味：しつこくて、うるさい。また、あっさりしていない。
+2文字指定
+
+ID:Lv05_0015　しょうが、はじかみ
+テキスト：薑
+意味：ショウガ目ショウガ科の多年草。
+4文字指定　植物・藻類
+
+ID:Lv05_0032　かこつ
+テキスト：喞つ
+意味：他の事柄を口実とする。
+
+ID:Lv05_0468　うつぼかずら
+テキスト：猪籠草
+意味：ウツボカズラ属の植物の総称。食虫植物の一種。
+別表記：靫葛
+6文字指定　植物・藻類
+
+ID:Lv05_0497　こけらおとし
+テキスト：杮落とし
+意味：新しい劇場、舞台ではじめて催される公演のこと。
+
+ID:1~500　ID:501~1000　ID:1001~1500
+タグ：
+漢字でGO
+問題集
+記事メニュー
+人気記事ランキング`;
+        document.getElementById("wiki-paste-input").value = sample;
+        previewWikiInput();
+        showToast("Ctrl+A形式のサンプル（ヘッダー・フッター付き）を挿入しました");
+      }
+
+      // =========================================================================
+      // 6. 問題一覧・検索・削除・ジャンプ
+      // =========================================================================
+      function renderManageList() {
+        const listEl = document.getElementById("manage-card-list");
+        const countEl = document.getElementById("manage-list-count");
+        const query = (
+          document.getElementById("manage-search-input")?.value || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        countEl.textContent = allCards.length;
+        updateAuditLevelOptionsAndSummary();
+
+        const matched = allCards.filter((c) => {
+          if (!query) return true;
+          return (
+            c.id.toLowerCase().includes(query) ||
+            c.kanji.toLowerCase().includes(query) ||
+            (c.altForms && c.altForms.toLowerCase().includes(query)) ||
+            (c.readings || []).some((r) => r.toLowerCase().includes(query)) ||
+            (c.tags || []).some((t) => t.toLowerCase().includes(query))
+          );
+        });
+
+        if (matched.length === 0) {
+          listEl.innerHTML = `<div class="text-xs text-slate-500 text-center py-4">一致するカードがありません</div>`;
+          return;
+        }
+
+        // パフォーマンス確保のため最大200件までリスト描画（検索で絞り込み可能）
+        const displaySlice = matched.slice(0, 200);
+
+        listEl.innerHTML = displaySlice
+          .map((card) => {
+            const statusColor =
+              card.status === "mastered"
+                ? "text-emerald-400"
+                : card.status === "review"
+                ? "text-rose-400"
+                : "text-slate-500";
+            const lv = extractCardLevel(card);
+            return `
+            <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">${escapeHtml(
+                    lv
+                  )}</span>
+                  <span class="text-[10px] font-mono text-slate-400">${escapeHtml(
+                    card.id
+                  )}</span>
+                  <span class="text-[10px] font-bold ${statusColor}">●</span>
+                  <span class="text-[10px] text-amber-400/90 truncate">${escapeHtml(
+                    (card.tags || []).join(" / ")
+                  )}</span>
+                </div>
+                <div class="flex items-baseline gap-2 mt-0.5">
+                  <span class="text-sm font-black text-white">${
+                    formatKanjiWithOkurigana(card.kanji).html
+                  }</span>
+                  <span class="text-xs text-slate-300 truncate">${escapeHtml(
+                    (card.readings || []).join("、")
+                  )}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <button
+                  onclick="openCardInStudyTab('${escapeHtml(card.id)}')"
+                  class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 text-[10px] font-bold transition"
+                  title="このIDから暗記を始める"
+                >
+                  このIDから
+                </button>
+                <button
+                  onclick="deleteCardById('${escapeHtml(card.id)}')"
+                  class="w-7 h-7 rounded-lg bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-300 text-xs flex items-center justify-center"
+                  title="削除"
+                >
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          `;
+          })
+          .join("");
+      }
+
+      function openCardInStudyTab(cardId) {
+        const target = allCards.find((c) => c.id === cardId);
+        if (!target) return;
+        filterLevel = extractCardLevel(target);
+        filterStatus = "all";
+        filterTag = "ALL";
+        currentChunkIndex = -1;
+        sortOrder = "id_asc";
+        document.getElementById("sort-order-label").textContent = "ID順(昇順)";
+        populateLevelTabs();
+        populateTagOptions();
+        setFilterStatus("all");
+        const idx = filteredDeck.findIndex((c) => c.id === cardId);
+        if (idx !== -1) {
+          currentIndex = idx;
+          saveCurrentBookmark();
+          renderCurrentCard();
+        }
+        switchTab("study");
+        showToast(`${cardId} からID順学習を開始します`);
+      }
+
+      function deleteCardById(cardId) {
+        allCards = allCards.filter((c) => c.id !== cardId);
+        saveCards();
+        populateLevelTabs();
+        populateTagOptions();
+        applyFilters(false, false);
+        renderManageList();
+        showToast(`${cardId} を削除しました`);
+      }
+
+      // =========================================================================
+      // 7. JSONエクスポート / インポート & AI全数検査エクスポート & モーダル確認
+      // =========================================================================
+      function getTargetAuditCards() {
+        const sel = document.getElementById("audit-level-select");
+        const targetLv = sel ? sel.value : "ALL";
+        const list =
+          targetLv === "ALL"
+            ? [...allCards]
+            : allCards.filter((c) => extractCardLevel(c) === targetLv);
+        return list.sort(compareCardIds);
+      }
+
+      // 登録データの自動整合性チェック（ID連番抜け・必須項目欠落・文字数指定と読みの整合・送り仮名チェック）
+      function runLocalAuditReport(cards) {
+        const missingIds = [];
+        const anomalies = [];
+
+        // レベル別にID連番チェック
+        const byLevel = new Map();
+        cards.forEach((c) => {
+          const lv = extractCardLevel(c);
+          if (!byLevel.has(lv)) byLevel.set(lv, []);
+          byLevel.get(lv).push(c);
+        });
+
+        byLevel.forEach((lvCards, lv) => {
+          const nums = [];
+          lvCards.forEach((c) => {
+            const m = String(c.id).match(/_(\d+)$/);
+            if (m) nums.push({ num: parseInt(m[1], 10), id: c.id });
+          });
+          nums.sort((a, b) => a.num - b.num);
+          for (let i = 1; i < nums.length; i++) {
+            const prev = nums[i - 1].num;
+            const curr = nums[i].num;
+            if (curr - prev > 1) {
+              const gapStart = prev + 1;
+              const gapEnd = curr - 1;
+              missingIds.push(
+                gapStart === gapEnd
+                  ? `${lv}: #${gapStart}`
+                  : `${lv}: #${gapStart}〜#${gapEnd}`
+              );
+            }
+          }
+        });
+
+        cards.forEach((c) => {
+          const issues = [];
+          const rawKanji = c.kanji || "";
+          const plainKanji = rawKanji.replace(/\[|\]/g, "");
+          const readings = c.readings || [];
+
+          if (!plainKanji) issues.push("テキスト空欄");
+          if (readings.length === 0) issues.push("読み空欄");
+          if (!c.meaning && !c.source) issues.push("意味・元作品とも空欄");
+
+          // 送り仮名（ひらがな混じり）なのに [ ] が付いていないケースの検知
+          const hasHiragana = /[ぁ-ん]/.test(plainKanji);
+          const hasKanji = /[一-龠々〆ヵヶ𠀀-\u{2FFFF}]/u.test(plainKanji);
+          if (hasHiragana && hasKanji && !/\[.+?\]/.test(rawKanji)) {
+            issues.push("送り仮名未括弧の可能性");
+          }
+
+          // 「N文字指定」タグと読み文字数の整合チェック（送り仮名を除いた文字数とも照合）
+          const charLimitTag = (c.tags || []).find((t) =>
+            /^(\d+)文字指定$/.test(t)
+          );
+          if (charLimitTag) {
+            const limitNum = parseInt(charLimitTag.match(/^(\d+)/)[1], 10);
+            const okuriganaMatches = rawKanji.match(/\[(.+?)\]/g) || [];
+            const okuriganaLen = okuriganaMatches.reduce(
+              (acc, s) => acc + Array.from(s.replace(/\[|\]/g, "")).length,
+              0
+            );
+            const matchesAny = readings.some((r) => {
+              const cleanR = r.replace(/[・\s　]/g, "");
+              const rLen = Array.from(cleanR).length;
+              return rLen === limitNum || rLen - okuriganaLen === limitNum;
+            });
+            if (!matchesAny) {
+              issues.push(
+                `文字数指定(${limitNum}文字)と読み(${readings.join("/")})の不一致確認`
+              );
+            }
+          }
+
+          if (issues.length > 0) {
+            anomalies.push({ id: c.id, kanji: rawKanji, issues });
+          }
+        });
+
+        return {
+          total: cards.length,
+          missingIds,
+          anomalies,
+        };
+      }
+
+      function updateAuditLevelOptionsAndSummary() {
+        const select = document.getElementById("audit-level-select");
+        const summaryEl = document.getElementById("local-audit-summary");
+        if (!select || !summaryEl) return;
+
+        const prevVal = select.value || "ALL";
+        const levels = Array.from(
+          new Set(allCards.map((c) => extractCardLevel(c)))
+        ).sort(compareLevelNames);
+
+        let html = `<option value="ALL">全レベル一括 (${allCards.length}問)</option>`;
+        levels.forEach((lv) => {
+          const count = allCards.filter((c) => extractCardLevel(c) === lv)
+            .length;
+          html += `<option value="${escapeHtml(lv)}">${escapeHtml(
+            lv
+          )} (${count}問)</option>`;
+        });
+        select.innerHTML = html;
+        select.value = levels.includes(prevVal) ? prevVal : "ALL";
+        select.onchange = () => renderAuditSummaryStatus();
+
+        renderAuditSummaryStatus();
+      }
+
+      function renderAuditSummaryStatus() {
+        const summaryEl = document.getElementById("local-audit-summary");
+        if (!summaryEl) return;
+        const cards = getTargetAuditCards();
+        const report = runLocalAuditReport(cards);
+        const firstId = cards.length > 0 ? cards[0].id : "-";
+        const lastId = cards.length > 0 ? cards[cards.length - 1].id : "-";
+
+        const gapText =
+          report.missingIds.length === 0
+            ? `<span class="text-emerald-400">欠番なし</span>`
+            : `<span class="text-amber-400">ID飛び:${report.missingIds.length}箇所 (${escapeHtml(
+                report.missingIds.slice(0, 3).join(", ")
+              )})</span>`;
+        const anomalyText =
+          report.anomalies.length === 0
+            ? `<span class="text-emerald-400">要確認項目:0件</span>`
+            : `<span class="text-rose-400">要確認:${report.anomalies.length}件</span>`;
+
+        summaryEl.innerHTML = `対象: <b>${report.total}</b>問 (${escapeHtml(
+          firstId
+        )}〜${escapeHtml(lastId)}) ｜ ${gapText} ｜ ${anomalyText}`;
+      }
+
+      // AI全数検査用のTSV形式テキストを生成（プロンプトヘッダー＋自動診断サマリー＋全行TSV）
+      function buildAuditTsvContent(cards) {
+        const report = runLocalAuditReport(cards);
+        const cleanCell = (val) =>
+          String(val || "")
+            .replace(/\t/g, " ")
+            .replace(/\r?\n/g, " ");
+
+        const headerLines = [
+          "# ===================================================================",
+          "# 漢字でGO！ 暗記単語帳 登録データ AI全数検査用エクスポートファイル",
+          "# ===================================================================",
+          "# 【AIへの検査指示】",
+          "# 以下のTSVテーブル（全登録カード）について、全数検査を行ってください：",
+          "# 1. IDの連番抜けや重複がないか",
+          "# 2. KANJI列の送り仮名括弧 [ ] が適切か（送り仮名が赤字対象として正しく括られているか）",
+          "# 3. READINGS（正解の読み）とTAGS（○文字指定・音読み指定など）に矛盾や誤字がないか",
+          "# 4. MEANING / SOURCE / TAGS にWikiのフッターや無関係な文字列が混入していないか",
+          `# 出力日時: ${new Date().toLocaleString("ja-JP")}`,
+          `# 対象件数: ${report.total}件`,
+          `# 自動チェック結果(ID飛び): ${
+            report.missingIds.length === 0
+              ? "なし"
+              : report.missingIds.join(" / ")
+          }`,
+          `# 自動チェック結果(要確認カード): ${
+            report.anomalies.length === 0
+              ? "0件"
+              : report.anomalies
+                  .map((a) => `${a.id}(${a.issues.join(",")})`)
+                  .join(" / ")
+          }`,
+          "# ===================================================================",
+          "ID\tLEVEL\tKANJI_RAW\tKANJI_PLAIN\tREADINGS\tTAGS\tALT_FORMS\tIDS\tMEANING\tSOURCE\tAUTO_CHECK",
+        ];
+
+        const anomalyMap = new Map();
+        report.anomalies.forEach((a) =>
+          anomalyMap.set(a.id, a.issues.join("; "))
+        );
+
+        const rows = cards.map((c) => {
+          const rawKanji = c.kanji || "";
+          const plainKanji = rawKanji.replace(/\[|\]/g, "");
+          const lv = extractCardLevel(c);
+          const readingsStr = (c.readings || []).join("、");
+          const tagsStr = (c.tags || []).join(" | ");
+          const checkFlag = anomalyMap.get(c.id) || "OK";
+
+          return [
+            cleanCell(c.id),
+            cleanCell(lv),
+            cleanCell(rawKanji),
+            cleanCell(plainKanji),
+            cleanCell(readingsStr),
+            cleanCell(tagsStr),
+            cleanCell(c.altForms),
+            cleanCell(c.ids),
+            cleanCell(c.meaning),
+            cleanCell(c.source),
+            cleanCell(checkFlag),
+          ].join("\t");
+        });
+
+        return headerLines.concat(rows).join("\n");
+      }
+
+      // 1. AI全数検査用TSV(.txt)ファイルとしてダウンロード
+      function exportAuditTsvFile() {
+        const cards = getTargetAuditCards();
+        if (cards.length === 0) {
+          showToast("エクスポートするカードがありません");
+          return;
+        }
+        const sel = document.getElementById("audit-level-select")?.value || "ALL";
+        const safeLv = sel.replace(/[^A-Za-z0-9_-]/g, "");
+        const content = buildAuditTsvContent(cards);
+        downloadBlob(
+          content,
+          `kanjidego_audit_${safeLv}_${cards.length}cards.txt`,
+          "text/plain;charset=utf-8"
+        );
+        showToast(
+          `AI全数検査用TSV (${cards.length}問) を .txt で書き出しました`
+        );
+      }
+
+      // 2. JSONL（1行1オブジェクト）形式でダウンロード
+      function exportAuditJsonlFile() {
+        const cards = getTargetAuditCards();
+        if (cards.length === 0) {
+          showToast("エクスポートするカードがありません");
+          return;
+        }
+        const sel = document.getElementById("audit-level-select")?.value || "ALL";
+        const safeLv = sel.replace(/[^A-Za-z0-9_-]/g, "");
+        const lines = cards.map((c) =>
+          JSON.stringify({
+            id: c.id,
+            level: extractCardLevel(c),
+            kanji: c.kanji,
+            readings: c.readings,
+            tags: c.tags,
+            altForms: c.altForms || "",
+            ids: c.ids || "",
+            meaning: c.meaning || "",
+            source: c.source || "",
+          })
+        );
+        downloadBlob(
+          lines.join("\n"),
+          `kanjidego_audit_${safeLv}_${cards.length}cards.jsonl`,
+          "application/x-jsonlines;charset=utf-8"
+        );
+        showToast(`AI検査用JSONL (${cards.length}問) を書き出しました`);
+      }
+
+      // 3. クリップボードにAI検査プロンプト＋全数TSVデータをコピー（そのままチャットに貼り付け可能）
+      function copyAuditPromptAndData() {
+        const cards = getTargetAuditCards();
+        if (cards.length === 0) {
+          showToast("コピーするカードがありません");
+          return;
+        }
+        const content = buildAuditTsvContent(cards);
+        const ta = document.createElement("textarea");
+        ta.value = content;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand("copy");
+          showToast(
+            `${cards.length}問のAI全数検査データをクリップボードにコピーしました`
+          );
+        } catch (err) {
+          showToast("コピーに失敗しました。TSV(.txt)出力をご利用ください");
+        }
+        document.body.removeChild(ta);
+      }
+
+      function exportCardsJson() {
+        const dataStr = JSON.stringify(allCards, null, 2);
+        downloadBlob(dataStr, "kanjidego_cards_backup.json", "application/json");
+        showToast("JSONバックアップを書き出しました");
+      }
+
+      function importCardsJson(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (!Array.isArray(imported)) throw new Error("Invalid format");
+            allCards = imported;
+            allCards.sort(compareCardIds);
+            saveCards();
+            populateLevelTabs();
+            populateTagOptions();
+            applyFilters(true, false);
+            renderManageList();
+            showToast(`${imported.length}件のカードを読み込みました`);
+          } catch (err) {
+            showToast("JSONファイルの形式が正しくありません");
+          }
+        };
+        reader.readAsText(file);
+        event.target.value = "";
+      }
+
+      function openConfirmModal(actionType) {
+        pendingConfirmAction = actionType;
+        const modal = document.getElementById("confirm-modal");
+        const title = document.getElementById("modal-title");
+        const msg = document.getElementById("modal-message");
+        const btn = document.getElementById("modal-confirm-btn");
+
+        if (actionType === "resetProgress") {
+          title.textContent = "学習履歴のリセット";
+          msg.textContent =
+            "登録した問題データは残したまま、「覚えた」「要復習」の履歴としおり位置を未学習に戻しますか？";
+        } else {
+          title.textContent = "初期サンプルに戻す";
+          msg.textContent =
+            "追加した問題を含むすべてのデータを消去し、初期サンプル状態に戻しますか？";
+        }
+
+        btn.onclick = executeConfirmedAction;
+        modal.classList.remove("hidden");
+      }
+
+      function closeConfirmModal() {
+        pendingConfirmAction = null;
+        document.getElementById("confirm-modal").classList.add("hidden");
+      }
+
+      function executeConfirmedAction() {
+        if (pendingConfirmAction === "resetProgress") {
+          allCards.forEach((c) => {
+            c.status = "unlearned";
+            c.reviewCount = 0;
+          });
+          levelBookmarks = {};
+          undoStack = [];
+          saveCards();
+          saveBookmarks();
+          applyFilters(true, false);
+          renderManageList();
+          showToast("学習履歴をリセットしました");
+        } else if (pendingConfirmAction === "resetAllData") {
+          allCards = JSON.parse(JSON.stringify(INITIAL_SAMPLE_CARDS));
+          allCards.sort(compareCardIds);
+          filterLevel = "ALL";
+          levelBookmarks = {};
+          undoStack = [];
+          saveCards();
+          saveBookmarks();
+          populateLevelTabs();
+          populateTagOptions();
+          applyFilters(true, false);
+          renderManageList();
+          showToast("初期サンプルデータに戻しました");
+        }
+        closeConfirmModal();
+      }
+
+      // =========================================================================
+      // 8. PWA用ファイル（manifest.json / sw.js）生成
+      // =========================================================================
+      function downloadManifestFile() {
+        const manifest = {
+          name: "漢字でGO！ 暗記単語帳",
+          short_name: "漢字でGO暗記",
+          start_url: "./index.html",
+          display: "standalone",
+          background_color: "#0b0f19",
+          theme_color: "#0b0f19",
+          orientation: "portrait",
+          icons: [
+            {
+              src: "https://placehold.co/192x192/dc2626/ffffff.png?text=%E6%BC%A2",
+              sizes: "192x192",
+              type: "image/png",
+            },
+            {
+              src: "https://placehold.co/512x512/dc2626/ffffff.png?text=%E6%BC%A2",
+              sizes: "512x512",
+              type: "image/png",
+            },
+          ],
+        };
+        downloadBlob(
+          JSON.stringify(manifest, null, 2),
+          "manifest.json",
+          "application/json"
+        );
+        showToast("manifest.json をダウンロードしました");
+      }
+
+      function downloadServiceWorkerFile() {
+        const swCode = `const CACHE_NAME = 'kanjidego-anki-cache-v3';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  'https://cdn.tailwindcss.com',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : null)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cached) => cached || fetch(event.request))
+  );
+});
+`;
+        downloadBlob(swCode, "sw.js", "application/javascript");
+        showToast("sw.js をダウンロードしました");
+      }
+
+      // =========================================================================
+      // 9. タブ切替・ユーティリティ
+      // =========================================================================
+      function switchTab(tabName) {
+        const views = ["study", "manage", "pwa"];
+        views.forEach((v) => {
+          const section = document.getElementById(`view-${v}`);
+          const btn = document.getElementById(`tab-btn-${v}`);
+          if (v === tabName) {
+            section.classList.remove("hidden");
+            section.classList.add("flex");
+            btn.className =
+              "py-1.5 rounded-xl text-amber-400 bg-slate-900 font-bold text-[11px] flex flex-col items-center gap-0.5 border border-slate-800";
+          } else {
+            section.classList.add("hidden");
+            section.classList.remove("flex");
+            btn.className =
+              "py-1.5 rounded-xl text-slate-400 hover:text-slate-200 font-semibold text-[11px] flex flex-col items-center gap-0.5";
+          }
+        });
+      }
+
+      function downloadBlob(content, filename, contentType) {
+        const blob = new Blob([content], { type: contentType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      let toastTimer = null;
+      function showToast(message) {
+        const box = document.getElementById("toast-box");
+        box.textContent = message;
+        box.classList.remove("hidden");
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          box.classList.add("hidden");
+        }, 2300);
+      }
+
+      function escapeHtml(str) {
+        return String(str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      // =========================================================================
+      // 10. テーマ・書体・IDS・判定モード・スワイプ操作関数群
+      // =========================================================================
+      function applyThemeUI() {
+        const body = document.getElementById("app-body");
+        const themeIcon = document.getElementById("theme-icon");
+        if (settings.darkMode) {
+          body.classList.add("dark");
+          body.classList.remove("bg-wafu-light");
+          body.classList.add("bg-wafu-dark");
+          if (themeIcon) {
+            themeIcon.className = "fa-solid fa-sun text-xs text-amber-400";
+          }
+        } else {
+          body.classList.remove("dark");
+          body.classList.remove("bg-wafu-dark");
+          body.classList.add("bg-wafu-light");
+          if (themeIcon) {
+            themeIcon.className = "fa-solid fa-moon text-xs text-slate-700";
+          }
+        }
+      }
+
+      function toggleTheme() {
+        settings.darkMode = !settings.darkMode;
+        saveSettings();
+        applyThemeUI();
+        showToast(
+          settings.darkMode
+            ? "ダークモードに切り替えました"
+            : "ライトモード（和紙調）に切り替えました"
+        );
+      }
+
+      function applyFontUI() {
+        const labelEl = document.getElementById("font-toggle-label");
+        if (labelEl) {
+          labelEl.textContent =
+            settings.kanjiFont === "serif" ? "明朝" : "ゴシック";
+        }
+      }
+
+      function toggleKanjiFont() {
+        settings.kanjiFont = settings.kanjiFont === "serif" ? "sans" : "serif";
+        saveSettings();
+        applyFontUI();
+        renderCurrentCard();
+        showToast(
+          settings.kanjiFont === "serif"
+            ? "明朝体に切り替えました"
+            : "ゴシック体に切り替えました"
+        );
+      }
+
+      function applyFrontIdsUI() {
+        const stateEl = document.getElementById("ids-toggle-state");
+        if (stateEl) {
+          if (settings.showFrontIds) {
+            stateEl.textContent = "IDS:ON";
+            stateEl.className = "text-indigo-400 font-bold";
+          } else {
+            stateEl.textContent = "IDS";
+            stateEl.className = "text-slate-400";
+          }
+        }
+      }
+
+      function toggleFrontIds() {
+        settings.showFrontIds = !settings.showFrontIds;
+        saveSettings();
+        applyFrontIdsUI();
+        renderCurrentCard();
+        showToast(
+          settings.showFrontIds
+            ? "表面にIDS部品構成を表示します"
+            : "表面のIDS表示を非表示にしました"
+        );
+      }
+
+      function applyActionModeUI() {
+        const labelEl = document.getElementById("action-mode-label");
+        if (labelEl) {
+          if (settings.actionMode === "two_step") {
+            labelEl.textContent = "まず解答を表示";
+          } else {
+            labelEl.textContent = "即判定して次へ";
+          }
+        }
+        updateCardFlipView();
+      }
+
+      function toggleActionMode() {
+        settings.actionMode =
+          settings.actionMode === "instant" ? "two_step" : "instant";
+        saveSettings();
+        applyActionModeUI();
+        showToast(
+          settings.actionMode === "two_step"
+            ? "判定モード: まず解答を表示する2段階にしました"
+            : "判定モード: ボタン即判定にしました"
+        );
+      }
+
+      function handleBottomJudgeButton(judgeStatus) {
+        if (filteredDeck.length === 0) return;
+        if (!isFlipped && settings.actionMode === "two_step") {
+          toggleCardFlip();
+          return;
+        }
+        markCurrentCard(judgeStatus);
+      }
+
+      function markCurrentCard(statusVal) {
+        if (filteredDeck.length === 0) return;
+        const currentCard = filteredDeck[currentIndex];
+        if (!currentCard) return;
+
+        undoStack.push({
+          cardId: currentCard.id,
+          prevStatus: currentCard.status,
+          prevReviewCount: currentCard.reviewCount,
+        });
+        if (undoStack.length > 25) undoStack.shift();
+
+        currentCard.status = statusVal;
+        currentCard.reviewCount = (currentCard.reviewCount || 0) + 1;
+        currentCard.lastStudied = new Date().toISOString();
+
+        const globalIdx = allCards.findIndex((c) => c.id === currentCard.id);
+        if (globalIdx !== -1) {
+          allCards[globalIdx] = { ...currentCard };
+        }
+
+        saveCards();
+        updateProgressHeader();
+
+        if (currentIndex < filteredDeck.length - 1) {
+          currentIndex++;
+        } else {
+          currentIndex = 0;
+        }
+
+        isFlipped = false;
+        saveCurrentBookmark();
+        renderCurrentCard();
+
+        const label =
+          statusVal === "mastered"
+            ? "「覚えた！」として記録"
+            : "「要復習」として記録";
+        showToast(`${currentCard.id}: ${label}`);
+      }
+
+      function updateUndoButtonUI() {
+        const btn = document.getElementById("btn-undo-action");
+        if (!btn) return;
+        if (undoStack.length > 0) {
+          btn.disabled = false;
+          btn.classList.remove("opacity-40", "pointer-events-none");
+          btn.classList.add("text-sky-400");
+        } else {
+          btn.disabled = true;
+          btn.classList.add("opacity-40", "pointer-events-none");
+          btn.classList.remove("text-sky-400");
+        }
+      }
+
+      function undoLastAction() {
+        if (undoStack.length === 0) return;
+        const last = undoStack.pop();
+        const target = allCards.find((c) => c.id === last.cardId);
+        if (target) {
+          target.status = last.prevStatus;
+          target.reviewCount = Math.max(0, (target.reviewCount || 1) - 1);
+          saveCards();
+        }
+        applyFilters(false, false);
+        const restoredIdx = filteredDeck.findIndex((c) => c.id === last.cardId);
+        if (restoredIdx !== -1) {
+          currentIndex = restoredIdx;
+        }
+        isFlipped = false;
+        renderCurrentCard();
+        showToast("直前の操作（判定とカード位置）を1つ戻しました");
+      }
+
+      function prevCard() {
+        if (filteredDeck.length === 0) return;
+        currentIndex =
+          (currentIndex - 1 + filteredDeck.length) % filteredDeck.length;
+        isFlipped = false;
+        saveCurrentBookmark();
+        renderCurrentCard();
+      }
+
+      function nextCard() {
+        if (filteredDeck.length === 0) return;
+        currentIndex = (currentIndex + 1) % filteredDeck.length;
+        isFlipped = false;
+        saveCurrentBookmark();
+        renderCurrentCard();
+      }
+
+      function setupCardSwipeGestures() {
+        const box = document.getElementById("flashcard-box");
+        if (!box) return;
+        let startX = 0;
+        let startY = 0;
+
+        box.addEventListener(
+          "touchstart",
+          (e) => {
+            if (e.touches.length === 1) {
+              startX = e.touches[0].clientX;
+              startY = e.touches[0].clientY;
+            }
+          },
+          { passive: true }
+        );
+
+        box.addEventListener(
+          "touchend",
+          (e) => {
+            if (e.changedTouches.length === 1) {
+              const diffX = e.changedTouches[0].clientX - startX;
+              const diffY = e.changedTouches[0].clientY - startY;
+              if (
+                Math.abs(diffX) > 50 &&
+                Math.abs(diffX) > Math.abs(diffY) * 1.5
+              ) {
+                if (diffX < 0) {
+                  nextCard();
+                } else {
+                  prevCard();
+                }
+              }
+            }
+          },
+          { passive: true }
+        );
+      }
+
+      // アプリ起動
+      window.onload = function () {
+        initApp();
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register("./sw.js").catch(function (err) {
+            console.log("SW registration skipped:", err);
+          });
+        }
+      };
+    </script>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kanjidego-anki-cache-v11';
+const CACHE_NAME = 'kanjidego-anki-cache-v12';
 // アプリ本体（これが保存できないとオフライン起動できないので必須）
 const CORE_ASSETS = ['./', './index.html'];
 // あると良いもの（外部CDNなど）。取得に失敗してもインストール自体は止めない

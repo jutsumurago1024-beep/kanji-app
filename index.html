@@ -935,6 +935,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <i class="fa-brands fa-apple text-base"></i>
             iPhoneで完全オフライン起動する手順
           </h2>
+          <p class="text-[11px] text-slate-400">
+            アプリのバージョン：<span id="app-version-label" class="font-mono text-emerald-300"></span>
+            ／ オフライン保存：<span id="sw-version-label" class="font-mono text-emerald-300">確認中…</span>
+          </p>
           <ol class="text-xs text-slate-300 space-y-2.5 list-decimal list-inside leading-relaxed">
             <li>
               このHTML（<code class="text-amber-300">index.html</code>）と、下のボタンから書き出せる
@@ -4967,7 +4971,7 @@ ID:1~500　ID:501~1000　ID:1001~1500
       }
 
       function downloadServiceWorkerFile() {
-        const swCode = `const CACHE_NAME = 'kanjidego-anki-cache-v10';
+        const swCode = `const CACHE_NAME = 'kanjidego-anki-cache-v11';
 // アプリ本体（これが保存できないとオフライン起動できないので必須）
 const CORE_ASSETS = ['./', './index.html'];
 // あると良いもの（外部CDNなど）。取得に失敗してもインストール自体は止めない
@@ -4980,12 +4984,13 @@ const OPTIONAL_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(CORE_ASSETS);
+    // ブラウザのHTTPキャッシュに残った古い版を拾わないよう、サーバーから取り直す
+    await cache.addAll(CORE_ASSETS.map((url) => new Request(url, { cache: 'reload' })));
     await Promise.all(OPTIONAL_ASSETS.map(async (url) => {
       try {
         // 外部ファイルは CORS ヘッダーの有無に関係なく保存できるよう no-cors で取得する
         const sameOrigin = new URL(url, self.location.href).origin === self.location.origin;
-        const res = await fetch(url, sameOrigin ? {} : { mode: 'no-cors' });
+        const res = await fetch(url, sameOrigin ? { cache: 'reload' } : { mode: 'no-cors' });
         if (res.ok || res.type === 'opaque') await cache.put(url, res);
       } catch (e) {
         // 取得できなくても無視（後で通常の読み込み時に保存される）
@@ -5022,8 +5027,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       try {
-        const res = await fetchWithTimeout(req, 4000);
-        if (res.ok && res.type === 'basic' && !res.redirected) {
+        // HTTPキャッシュ（GitHub Pages は約10分保持）を使わず、毎回サーバーに最新版を確認する
+        let res = await fetchWithTimeout(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }), 4000);
+        if (res.redirected) {
+          // リダイレクト経由の応答はそのまま返すと Safari がページを表示できないため作り直す
+          res = new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+        }
+        if (res.ok) {
           await cache.put('./index.html', res.clone());
         }
         return res;
@@ -5356,8 +5366,32 @@ self.addEventListener('fetch', (event) => {
       }
 
       // アプリ起動
+      // アプリ本体のバージョン（更新が反映されたかの確認用。更新のたびに変える）
+      const APP_VERSION = "2026-11-04 v11";
+
+      function showAppVersionLabels() {
+        const appEl = document.getElementById("app-version-label");
+        if (appEl) appEl.textContent = APP_VERSION;
+        const swEl = document.getElementById("sw-version-label");
+        if (!swEl) return;
+        if (!("caches" in window)) {
+          swEl.textContent = "非対応";
+          return;
+        }
+        caches
+          .keys()
+          .then((keys) => {
+            const names = keys.filter((k) => k.startsWith("kanjidego-anki-cache-"));
+            swEl.textContent = names.length ? names.join(", ").replace(/kanjidego-anki-cache-/g, "") : "未保存";
+          })
+          .catch(() => {
+            swEl.textContent = "確認不可";
+          });
+      }
+
       window.onload = function () {
         initApp();
+        showAppVersionLabels();
         if ("serviceWorker" in navigator) {
           navigator.serviceWorker.register("./sw.js").catch(function (err) {
             console.log("SW registration skipped:", err);

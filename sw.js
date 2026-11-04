@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kanjidego-anki-cache-v10';
+const CACHE_NAME = 'kanjidego-anki-cache-v11';
 // アプリ本体（これが保存できないとオフライン起動できないので必須）
 const CORE_ASSETS = ['./', './index.html'];
 // あると良いもの（外部CDNなど）。取得に失敗してもインストール自体は止めない
@@ -11,12 +11,13 @@ const OPTIONAL_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(CORE_ASSETS);
+    // ブラウザのHTTPキャッシュに残った古い版を拾わないよう、サーバーから取り直す
+    await cache.addAll(CORE_ASSETS.map((url) => new Request(url, { cache: 'reload' })));
     await Promise.all(OPTIONAL_ASSETS.map(async (url) => {
       try {
         // 外部ファイルは CORS ヘッダーの有無に関係なく保存できるよう no-cors で取得する
         const sameOrigin = new URL(url, self.location.href).origin === self.location.origin;
-        const res = await fetch(url, sameOrigin ? {} : { mode: 'no-cors' });
+        const res = await fetch(url, sameOrigin ? { cache: 'reload' } : { mode: 'no-cors' });
         if (res.ok || res.type === 'opaque') await cache.put(url, res);
       } catch (e) {
         // 取得できなくても無視（後で通常の読み込み時に保存される）
@@ -53,8 +54,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       try {
-        const res = await fetchWithTimeout(req, 4000);
-        if (res.ok && res.type === 'basic' && !res.redirected) {
+        // HTTPキャッシュ（GitHub Pages は約10分保持）を使わず、毎回サーバーに最新版を確認する
+        let res = await fetchWithTimeout(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }), 4000);
+        if (res.redirected) {
+          // リダイレクト経由の応答はそのまま返すと Safari がページを表示できないため作り直す
+          res = new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+        }
+        if (res.ok) {
           await cache.put('./index.html', res.clone());
         }
         return res;

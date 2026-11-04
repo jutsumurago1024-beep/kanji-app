@@ -1,9 +1,12 @@
-const CACHE_NAME = 'kanjidego-anki-cache-v12';
+const CACHE_NAME = 'kanjidego-anki-cache-v13';
 // アプリ本体（これが保存できないとオフライン起動できないので必須）
 const CORE_ASSETS = ['./', './index.html'];
 // あると良いもの（外部CDNなど）。取得に失敗してもインストール自体は止めない
 const OPTIONAL_ASSETS = [
   './manifest.json',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];

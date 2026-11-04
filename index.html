@@ -14,6 +14,8 @@
     <meta name="apple-mobile-web-app-title" content="漢字でGO暗記" />
     <title>漢字でGO！ 暗記単語帳</title>
     <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <link rel="icon" type="image/png" href="./icon-192.png" />
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -5087,12 +5089,12 @@ ID:1~500　ID:501~1000　ID:1001~1500
           orientation: "portrait",
           icons: [
             {
-              src: "https://placehold.co/192x192/dc2626/ffffff.png?text=%E6%BC%A2",
+              src: "./icon-192.png",
               sizes: "192x192",
               type: "image/png",
             },
             {
-              src: "https://placehold.co/512x512/dc2626/ffffff.png?text=%E6%BC%A2",
+              src: "./icon-512.png",
               sizes: "512x512",
               type: "image/png",
             },
@@ -5107,12 +5109,15 @@ ID:1~500　ID:501~1000　ID:1001~1500
       }
 
       function downloadServiceWorkerFile() {
-        const swCode = `const CACHE_NAME = 'kanjidego-anki-cache-v12';
+        const swCode = `const CACHE_NAME = 'kanjidego-anki-cache-v13';
 // アプリ本体（これが保存できないとオフライン起動できないので必須）
 const CORE_ASSETS = ['./', './index.html'];
 // あると良いもの（外部CDNなど）。取得に失敗してもインストール自体は止めない
 const OPTIONAL_ASSETS = [
   './manifest.json',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
@@ -5503,7 +5508,7 @@ self.addEventListener('fetch', (event) => {
 
       // アプリ起動
       // アプリ本体のバージョン（更新が反映されたかの確認用。更新のたびに変える）
-      const APP_VERSION = "2026-11-04 v12";
+      const APP_VERSION = "2026-11-04 v13";
 
       function showAppVersionLabels() {
         const appEl = document.getElementById("app-version-label");
